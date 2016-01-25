@@ -4,3 +4,4 @@ dataset/*
 models/*
 .theano/*
 loss/*
+log.txt
