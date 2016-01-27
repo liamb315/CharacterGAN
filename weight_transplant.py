@@ -51,8 +51,8 @@ def create_data_batcher(reviews, targets, encoding, sequence_length=200, batch_s
 
 if __name__ == "__main__":
     args = parse_args()
+    
     logging.debug("Reading file...")
-
     with open(args.real_file, 'r') as fp:
         real_reviews = [r[3:] for r in fp.read().strip().split('\n')]
         real_reviews = [r.replace('\x05',  '') for r in real_reviews] 
@@ -74,13 +74,12 @@ if __name__ == "__main__":
     random.seed(1)
     random.shuffle(all_reviews)
 
-    # Partition data
     reviews, targets = zip(*all_reviews[:100000])
     test_reviews, test_targets = zip(*all_reviews[100000:])
 
+    logging.debug('Retrieving text encoding...')
     with open('data/charnet-encoding.pkl', 'rb') as fp:
         text_encoding = pickle.load(fp)
-
 
     logging.debug("Converting to one-hot...")
     review_sequences = [CharacterSequence.from_string(review) for review in reviews]
@@ -96,14 +95,12 @@ if __name__ == "__main__":
     # batcher = create_data_batcher(reviews, targets, text_encoding)    
     # test_batcher = create_data_batcher(test_reviews, test_targets, text_encoding, sequence_length=200, batch_size=100)
 
-    # Define the model
-    logging.debug("Compiling model")
+    logging.debug("Compiling discriminator...")
     discriminator = Sequence(Vector(len(text_encoding))) >> Repeat(LSTM(1024), 2) >> Softmax(2)
-    with open('models/discriminative-model.pkl', 'rb') as fp:
+    with open('models/discriminative-model-0.0.pkl', 'rb') as fp:
         discriminator.set_state(pickle.load(fp))
     
-    # Training
-    #rmsprop = RMSProp(discriminator, ConvexSequentialLoss(CrossEntropy(), 0.5), clip_gradients=5)
+    # Optimization procedure
     rmsprop = RMSProp(discriminator, ConvexSequentialLoss(CrossEntropy(), 0.5), clip_gradients=5)
 
     # Training loss
@@ -117,7 +114,7 @@ if __name__ == "__main__":
                 print "Loss[%u]: %f" % (_, loss)
                 fp.flush()
                 train_loss.append(loss)
-        with open('models/discriminative-model-cur.pkl', 'wb') as fp:
+        with open('models/discriminative-model-current.pkl', 'wb') as fp:
             pickle.dump(discriminator.get_state(), fp)
           
 
