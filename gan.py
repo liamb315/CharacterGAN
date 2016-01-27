@@ -70,4 +70,8 @@ if __name__ == "__main__":
 
     def generate_sample():
         pred_seq = generator.predict(np.eye(100)[None,0])
-        print NumberSequence(pred_seq.argmax(axis=2).ravel()).decode(text_encoding)
+        return NumberSequence(pred_seq.argmax(axis=2).ravel()).decode(text_encoding)
+
+
+    def predict_likelihood(num_seq):
+        

@@ -96,11 +96,10 @@ if __name__ == "__main__":
     # batcher = create_data_batcher(reviews, targets, text_encoding)    
     # test_batcher = create_data_batcher(test_reviews, test_targets, text_encoding, sequence_length=200, batch_size=100)
 
-
     # Define the model
     logging.debug("Compiling model")
     discriminator = Sequence(Vector(len(text_encoding))) >> Repeat(LSTM(1024), 2) >> Softmax(2)
-    with open('models/current-model.pkl', 'rb') as fp:
+    with open('models/discriminative-model.pkl', 'rb') as fp:
         discriminator.set_state(pickle.load(fp))
     
     # Training
