@@ -12,6 +12,7 @@ from deepx.rnn import *
 from deepx.loss import *
 from deepx.optimize import *
 from argparse import ArgumentParser
+theano.config.on_unused_input = 'ignore'
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -92,7 +93,6 @@ if __name__ == "__main__":
     # Construct the batcher
     batcher = WindowedBatcher([final_seq], [text_encoding], final_target, sequence_length=200, batch_size=100)
     
-
     # batcher = create_data_batcher(reviews, targets, text_encoding)    
     # test_batcher = create_data_batcher(test_reviews, test_targets, text_encoding, sequence_length=200, batch_size=100)
 
@@ -103,6 +103,7 @@ if __name__ == "__main__":
         discriminator.set_state(pickle.load(fp))
     
     # Training
+    #rmsprop = RMSProp(discriminator, ConvexSequentialLoss(CrossEntropy(), 0.5), clip_gradients=5)
     rmsprop = RMSProp(discriminator, ConvexSequentialLoss(CrossEntropy(), 0.5), clip_gradients=5)
 
     # Training loss
@@ -116,7 +117,7 @@ if __name__ == "__main__":
                 print "Loss[%u]: %f" % (_, loss)
                 fp.flush()
                 train_loss.append(loss)
-        with open('models/current-model-2.pkl', 'wb') as fp:
+        with open('models/discriminative-model-cur.pkl', 'wb') as fp:
             pickle.dump(discriminator.get_state(), fp)
           
 

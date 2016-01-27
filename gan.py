@@ -37,18 +37,20 @@ if __name__ == "__main__":
 
     # Define the GAN model
     logging.debug('Compiling model...')
-    discriminator_i = (Sequence(Vector(len(text_encoding))) >> Repeat(LSTM(1024), 2) >> Softmax(2)).freeze()
-    with open('models/discriminative-model.pkl', 'rb') as fp:
-        state = pickle.load(fp)
-        discriminator_i.set_state(state)
-    discriminator = discriminator_i.left.right >> discriminator_i.right
-    
+    discriminator = (Sequence(Vector(len(text_encoding))) >> (Repeat(LSTM(1024), 2) >> Softmax(2))).freeze()
+        
     generator = Generate(Vector(len(text_encoding)) >> Repeat(LSTM(1024), 2) >> Softmax(len(text_encoding)), args.sequence_length)
+    
+    # Generator outputs to discriminator
+    gan = generator >> discriminator.right
+
     with open('models/generative-model-original.pkl', 'rb') as fp:
         generator.set_state(pickle.load(fp))
 
-    # Generator outputs to discriminator
-    gan = generator >> discriminator
+    with open('models/discriminative-model.pkl', 'rb') as fp:
+        state = pickle.load(fp)
+        state = (state[0][0], (state[0][1], state[1]))
+        discriminator.set_state(state)
     
     # Optimization 
     rmsprop = RMSProp(gan, ConvexSequentialLoss(CrossEntropy(), 0.5))
@@ -77,7 +79,7 @@ if __name__ == "__main__":
         char_seq   = CharacterSequence.from_string(text)
         num_seq    = char_seq.encode(text_encoding)
         num_seq_np = num_seq.seq.astype(np.int32)
-        X          = np.eye(args.sequence_length)[num_seq_np]
-        return discriminator_i.predict(X)
+        X          = np.eye(len(text_encoding))[num_seq_np].T
+        return discriminator.predict(X)
 
 
