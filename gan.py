@@ -73,5 +73,11 @@ if __name__ == "__main__":
         return NumberSequence(pred_seq.argmax(axis=2).ravel()).decode(text_encoding)
 
 
-    def predict_likelihood(num_seq):
-        
+    def predict_likelihood(text):
+        char_seq   = CharacterSequence.from_string(text)
+        num_seq    = char_seq.encode(text_encoding)
+        num_seq_np = num_seq.seq.astype(np.int32)
+        X          = np.eye(args.sequence_length)[num_seq_np]
+        return discriminator_i.predict(X)
+
+
