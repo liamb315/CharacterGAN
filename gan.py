@@ -29,34 +29,34 @@ def parse_args():
 if __name__ == "__main__":
     args = parse_args()
 
-    # Retrieve the text encoding
+    logging.debug('Retrieving text encoding...')
     with open('data/charnet-encoding.pkl', 'rb') as fp:
         text_encoding = pickle.load(fp)
 
-    logging.debug("Converting to one-hot...")
-
-    # Define the GAN model
-    logging.debug('Compiling model...')
+    logging.debug('Compiling discriminator...')
     discriminator = (Sequence(Vector(len(text_encoding))) >> (Repeat(LSTM(1024), 2) >> Softmax(2))).freeze()
-        
+    
+    logging.debug('Compiling generator...')
     generator = Generate(Vector(len(text_encoding)) >> Repeat(LSTM(1024), 2) >> Softmax(len(text_encoding)), args.sequence_length)
     
-    # Generator outputs to discriminator
+    logging.debug('Compiling GAN...')
     gan = generator >> discriminator.right
 
-    with open('models/generative-model-original.pkl', 'rb') as fp:
+    # Load parameters after chaining operations due to known issue in DeepX
+    with open('models/generative-model-0.0.pkl', 'rb') as fp:
         generator.set_state(pickle.load(fp))
 
-    with open('models/discriminative-model.pkl', 'rb') as fp:
+    with open('models/discriminative-model.0.0', 'rb') as fp:
         state = pickle.load(fp)
         state = (state[0][0], (state[0][1], state[1]))
         discriminator.set_state(state)
     
-    # Optimization 
+    # Optimization procedure
     rmsprop = RMSProp(gan, ConvexSequentialLoss(CrossEntropy(), 0.5))
 
-    # Train the generative adversarial model
+
     def iterate(iterations, step_size):
+        '''Train the generative model via a GAN framework'''
         with open(args.log, 'w') as fp:
             for _ in xrange(iterations):
                 index = text_encoding.encode('<STR>')
@@ -70,16 +70,19 @@ if __name__ == "__main__":
         with open('models/gan-model-current.pkl', 'wb') as fp:
             pickle.dump(gan.get_state(), fp)
 
+
     def generate_sample():
+        '''Generate a sample'''
         pred_seq = generator.predict(np.eye(100)[None,0])
         return NumberSequence(pred_seq.argmax(axis=2).ravel()).decode(text_encoding)
 
 
-    def predict_likelihood(text):
+    def predict(text):
+        '''Return prediction array at each time-step of input text'''
         char_seq   = CharacterSequence.from_string(text)
         num_seq    = char_seq.encode(text_encoding)
         num_seq_np = num_seq.seq.astype(np.int32)
-        X          = np.eye(len(text_encoding))[num_seq_np].T
+        X          = np.eye(len(text_encoding))[num_seq_np]
         return discriminator.predict(X)
 
 
