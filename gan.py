@@ -67,8 +67,8 @@ if __name__ == "__main__":
                 print "Loss[%u]: %f" % (_, loss)
                 fp.flush()
         
-        #with open('models/current-gan-model.pkl', 'wb') as fp:
-        #    pickle.dump(gan.get_state(), fp)
+        with open('models/gan-model-current.pkl', 'wb') as fp:
+            pickle.dump(gan.get_state(), fp)
 
     def generate_sample():
         pred_seq = generator.predict(np.eye(100)[None,0])
