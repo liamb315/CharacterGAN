@@ -47,11 +47,10 @@ if __name__ == "__main__":
     with open('models/generative-model-original.pkl', 'rb') as fp:
         generator.set_state(pickle.load(fp))
 
-    # Discriminator is too damn good. Use random initialization
-    # with open('models/discriminative-model.pkl', 'rb') as fp:
-    #     state = pickle.load(fp)
-    #     state = (state[0][0], (state[0][1], state[1]))
-    #     discriminator.set_state(state)
+    with open('models/discriminative-model.pkl', 'rb') as fp:
+        state = pickle.load(fp)
+        state = (state[0][0], (state[0][1], state[1]))
+        discriminator.set_state(state)
     
     # Optimization 
     rmsprop = RMSProp(gan, ConvexSequentialLoss(CrossEntropy(), 0.5))
