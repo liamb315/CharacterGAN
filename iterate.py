@@ -1,7 +1,7 @@
 #print NumberSequence(generator.predict(np.eye(100)[None,0]).argmx(axis=2).ravel()).decode(text_encoding)
 
 
-def iterate(iterations, step_size, generator):
+def iterate(iterations, step_size, gan):
     with open(args.log, 'w') as fp:
         for _ in xrange(iterations):
             batch = np.tile(text_encoding.convert_representation([text_encoding.encode('<STR>')]), (args.batch_size, 1))
@@ -12,5 +12,5 @@ def iterate(iterations, step_size, generator):
             fp.flush()
             train_loss.append(loss)
 
-	with open('models/gan-model.pkl', 'wb') as fp:
-		pickle.dump(generator.get_state(), fp)
+	# with open('models/current-gan-model.pkl', 'wb') as fp:
+	# 	pickle.dump(gan.get_state(), fp)
