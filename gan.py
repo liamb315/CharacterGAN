@@ -46,7 +46,7 @@ if __name__ == "__main__":
     with open('models/generative-model-0.0.pkl', 'rb') as fp:
         generator.set_state(pickle.load(fp))
 
-    with open('models/discriminative-model.0.0', 'rb') as fp:
+    with open('models/discriminative-model-0.0.pkl', 'rb') as fp:
         state = pickle.load(fp)
         state = (state[0][0], (state[0][1], state[1]))
         discriminator.set_state(state)
