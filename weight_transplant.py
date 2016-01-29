@@ -19,12 +19,11 @@ logging.basicConfig(level=logging.DEBUG)
 
 def parse_args():
     argparser = ArgumentParser()
-
     argparser.add_argument("real_file")
     argparser.add_argument("fake_file")
     argparser.add_argument("--log", default="loss/current_loss.txt")
-
     return argparser.parse_args()
+
 
 def generate(length, temperature):
     results = charrnn.generate(

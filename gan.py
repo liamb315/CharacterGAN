@@ -45,15 +45,15 @@ if __name__ == "__main__":
 
     # Fix discriminator weights while training generator
     gan.right.frozen = True
-    print gan.get_parameters()
+    assert gan.get_parameters() == gan.left.get_parameters()
     # Optimization procedure
     rmsprop_G = RMSProp(gan, ConvexSequentialLoss(CrossEntropy(), 0.5))
 
     # Unfreeze the discrimator
     gan.right.frozen = False
-    print discriminator.get_parameters()
+    assert len(discriminator.get_parameters()) > 0
     # Optimization procedure
-    rmsprop_D = RMSProp(discriminator, ConvexSequentialLoss(CrossEntropy(), 0.5), clip_gradients=5)
+    rmsprop_D = RMSProp(discriminator, CrossEntropy(), clip_gradients=5)
 
 
     ##########
@@ -73,7 +73,9 @@ if __name__ == "__main__":
         '''Generate a sample from the current version of the generator'''
         pred_seq = generator.predict(np.eye(100)[None,0])
         num_seq  = NumberSequence(pred_seq.argmax(axis=2).ravel()).decode(text_encoding)
-        return ''.join(num_seq.seq)
+        return_str = ''.join(num_seq.seq)
+        return_str = return_str.replace('<STR>', '').replace('<EOS>', '')
+        return return_str
 
 
     def generate_fake_reviews(num_reviews):
@@ -86,6 +88,7 @@ if __name__ == "__main__":
         
         fake_reviews = [r.replace('\x05',  '') for r in fake_reviews]
         fake_reviews = [r.replace('<STR>', '') for r in fake_reviews]
+        fake_reviews = [r.replace('<EOS>', '') for r in fake_reviews]
         return fake_reviews
 
 
@@ -104,6 +107,7 @@ if __name__ == "__main__":
 
     def train_generator(iterations, step_size):
         '''Train the generative model via a GAN framework'''  
+        rmsprop_G.reset_parameters()
         with open(args.log, 'a+') as fp:
             for _ in xrange(iterations):
                 index = text_encoding.encode('<STR>')
@@ -118,7 +122,7 @@ if __name__ == "__main__":
     def train_discriminator(iterations, step_size, real_reviews, fake_reviews):
         '''Train the discriminator on real and fake reviews'''
         random.seed(1)
-        
+        rmsprop_D.reset_parameters()
         # Load and shuffle reviews
         real_targets, fake_targets = [],  []
         for _ in xrange(len(real_reviews)):
@@ -168,7 +172,7 @@ if __name__ == "__main__":
         for i in xrange(num_iter):
             logging.debug('Training generator...')
             #TEMP:  Eventually have stopping criterion
-            train_generator(25, 1) 
+            train_generator(100, 1) 
             
             logging.debug('Generating new fake reviews...')
             fake_reviews = generate_fake_reviews(100)            
