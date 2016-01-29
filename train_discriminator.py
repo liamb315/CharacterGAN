@@ -79,6 +79,8 @@ if __name__ == "__main__":
     logging.debug('Retrieving text encoding...')
     with open('data/charnet-encoding.pkl', 'rb') as fp:
         text_encoding = pickle.load(fp)
+    text_encoding.include_stop_token  = False
+    text_encoding.include_start_token = False
 
     logging.debug("Converting to one-hot...")
     review_sequences = [CharacterSequence.from_string(review) for review in reviews]
@@ -95,12 +97,12 @@ if __name__ == "__main__":
     # test_batcher = create_data_batcher(test_reviews, test_targets, text_encoding, sequence_length=200, batch_size=100)
 
     logging.debug("Compiling discriminator...")
-    discriminator = Sequence(Vector(len(text_encoding))) >> Repeat(LSTM(1024), 2) >> Softmax(2)
+    discriminator = Sequence(Vector(len(text_encoding), batch_size=100)) >> Repeat(LSTM(1024, stateful=True), 2) >> Softmax(2)
     with open('models/discriminative-model-0.0.pkl', 'rb') as fp:
         discriminator.set_state(pickle.load(fp))
     
     # Optimization procedure
-    rmsprop = RMSProp(discriminator, ConvexSequentialLoss(CrossEntropy(), 0.5), clip_gradients=5)
+    rmsprop = RMSProp(discriminator, CrossEntropy(), clip_gradients=5)
 
     # Training loss
     train_loss = []

@@ -113,12 +113,12 @@ if __name__ == '__main__':
 	logging.debug("Compiling discriminator...")
 	generator = Sequence(Vector(len(text_encoding), batch_size=100)) >> Repeat(LSTM(1024, stateful=True), 2) >> Softmax(len(text_encoding))
 
-	logging.debug('Loading prior model...')
+	# logging.debug('Loading prior model...')
 	with open('models/generative-model-0.0.pkl', 'rb') as fp:
 		generator.set_state(pickle.load(fp))
 
 	# Optimization procedure
-	rmsprop = RMSProp(generator, CrossEntropy(), clip_gradients=5)
+	rmsprop = RMSProp(generator, CrossEntropy())
 
 	def train_generator(iterations, step_size):
 		with open(args.log, 'w') as f:
@@ -128,4 +128,17 @@ if __name__ == '__main__':
 				print >> f, 'Loss[%u]: %f' % (_, loss)
 				print 'Loss[%u]: %f' % (_, loss)
 				f.flush()
+
+	# def generate_sample(length):
+ #        '''Generate a sample from the current version of the generator'''
+ #        characters = [np.array([0])]
+ #        generator2.reset_states()
+ #        for i in xrange(length):
+ #        	output = generator2.predict(np.eye(len(text_encoding))[None, characters[-1]])
+ #        	characters.append(output.argmax(axis=2)[0])
+ #        	print characters
+ #        characters =  np.array(characters).ravel()
+ #        num_seq  = NumberSequence(characters).decode(text_encoding)
+ #        return_str = ''.join(num_seq.seq)
+ #        return return_str
 					
