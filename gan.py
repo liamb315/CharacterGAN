@@ -32,27 +32,30 @@ if __name__ == "__main__":
 
     logging.debug('Retrieving text encoding...')
     with open('data/charnet-encoding.pkl', 'rb') as fp:
-        text_encoding = pickle.load(fp)
+        text_encoding_G = pickle.load(fp)
+
+    with open('data/charnet-encoding.pkl', 'rb') as fp:
+        text_encoding_D = pickle.load(fp)
+        text_encoding_D.include_stop_token  = False
+        text_encoding_D.include_start_token = False
 
     logging.debug('Compiling discriminator...')
-    discriminator = Sequence(Vector(len(text_encoding))) >> (Repeat(LSTM(1024), 2) >> Softmax(2))
+    discriminator = Sequence(Vector(len(text_encoding_D))) >> (Repeat(LSTM(1024), 2) >> Softmax(2))
     
     logging.debug('Compiling generator...')
-    generator = Generate(Vector(len(text_encoding)) >> Repeat(LSTM(1024), 2) >> Softmax(len(text_encoding)), args.sequence_length)
+    generator = Generate(Vector(len(text_encoding_G)) >> Repeat(LSTM(1024), 2) >> Softmax(len(text_encoding_G)), args.sequence_length)
     
     logging.debug('Compiling GAN...')
     gan = generator >> discriminator.right
 
-    # Fix discriminator weights while training generator
+    # Optimization for the generator (G)
     gan.right.frozen = True
     assert gan.get_parameters() == gan.left.get_parameters()
-    # Optimization procedure
     rmsprop_G = RMSProp(gan, ConvexSequentialLoss(CrossEntropy(), 0.5))
 
-    # Unfreeze the discrimator
+    # Optimization for the discrimator (D)
     gan.right.frozen = False
     assert len(discriminator.get_parameters()) > 0
-    # Optimization procedure
     rmsprop_D = RMSProp(discriminator, CrossEntropy(), clip_gradients=5)
 
 
@@ -72,7 +75,7 @@ if __name__ == "__main__":
     def generate_sample():
         '''Generate a sample from the current version of the generator'''
         pred_seq = generator.predict(np.eye(100)[None,0])
-        num_seq  = NumberSequence(pred_seq.argmax(axis=2).ravel()).decode(text_encoding)
+        num_seq  = NumberSequence(pred_seq.argmax(axis=2).ravel()).decode(text_encoding_G)
         return_str = ''.join(num_seq.seq)
         return_str = return_str.replace('<STR>', '').replace('<EOS>', '')
         return return_str
@@ -95,9 +98,9 @@ if __name__ == "__main__":
     def predict(text):
         '''Return prediction array at each time-step of input text'''
         char_seq   = CharacterSequence.from_string(text)
-        num_seq    = char_seq.encode(text_encoding)
+        num_seq    = char_seq.encode(text_encoding_D)
         num_seq_np = num_seq.seq.astype(np.int32)
-        X          = np.eye(len(text_encoding))[num_seq_np]
+        X          = np.eye(len(text_encoding_D))[num_seq_np]
         return discriminator.predict(X)
 
 
@@ -110,8 +113,8 @@ if __name__ == "__main__":
         rmsprop_G.reset_parameters()
         with open(args.log, 'a+') as fp:
             for _ in xrange(iterations):
-                index = text_encoding.encode('<STR>')
-                batch = np.tile(text_encoding.convert_representation([index]), (args.batch_size, 1))
+                index = text_encoding_G.encode('<STR>')
+                batch = np.tile(text_encoding_G.convert_representation([index]), (args.batch_size, 1))
                 y = np.tile([0, 1], (args.sequence_length, args.batch_size, 1))
                 loss = rmsprop_G.train(batch, y, step_size)
                 print >> fp,  "Generator Loss[%u]: %f" % (_, loss)
@@ -133,17 +136,17 @@ if __name__ == "__main__":
         all_reviews = zip(real_reviews, real_targets) + zip(fake_reviews, fake_targets)
         random.shuffle(all_reviews)
         
-        reviews, targets = zip(*all_reviews[:100]) #TEMP:  Just testing
+        reviews, targets = zip(*all_reviews[:1000]) #TEMP:  Just testing
 
         logging.debug("Converting to one-hot...")
         review_sequences = [CharacterSequence.from_string(review) for review in reviews]
-        num_sequences = [c.encode(text_encoding) for c in review_sequences]
+        num_sequences = [c.encode(text_encoding_D) for c in review_sequences]
         target_sequences = [NumberSequence([target]).replicate(len(r)) for target, r in zip(targets, num_sequences)]
         final_seq = NumberSequence(np.concatenate([c.seq.astype(np.int32) for c in num_sequences]))
         final_target = NumberSequence(np.concatenate([c.seq.astype(np.int32) for c in target_sequences]))
 
         # Construct the batcher
-        batcher = WindowedBatcher([final_seq], [text_encoding], final_target, sequence_length=200, batch_size=100)
+        batcher = WindowedBatcher([final_seq], [text_encoding_D], final_target, sequence_length=200, batch_size=100)
         
         with open(args.log, 'a+') as fp:
             for _ in xrange(iterations):
@@ -164,7 +167,7 @@ if __name__ == "__main__":
             real_reviews = [r.replace('\x05',  '') for r in real_reviews] 
             real_reviews = [r.replace('<STR>', '') for r in real_reviews]
 
-        real_reviews = real_reviews[0:100] #TEMP:  Just testing
+        real_reviews = real_reviews[0:1000] #TEMP:  Just testing
 
         with open(args.log, 'w') as fp:
             print >> fp, 'Alternating GAN for ',num_iter,' iterations.'
@@ -172,15 +175,17 @@ if __name__ == "__main__":
         for i in xrange(num_iter):
             logging.debug('Training generator...')
             #TEMP:  Eventually have stopping criterion
-            train_generator(100, 1) 
+            train_generator(10, 1) 
             
             logging.debug('Generating new fake reviews...')
-            fake_reviews = generate_fake_reviews(100)            
+            fake_reviews = generate_fake_reviews(1000)
+            with open('data/gan_reviews_'+str(i)+'.txt', 'w') as f:
+                for review in fake_reviews[0:10]:
+                    print >> f, review
 
             logging.debug('Training discriminator...')
             #TEMP:  Eventually have stopping criterion
-            train_discriminator(25, 100, real_reviews, fake_reviews)
-
+            train_discriminator(5, 100, real_reviews, fake_reviews)
 
             with open('models/gan-model-current.pkl', 'wb') as f:
                 pickle.dump(gan.get_state(), f)
