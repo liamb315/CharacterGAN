@@ -104,7 +104,7 @@ if __name__ == "__main__":
 
     # Training loss
     train_loss = []
-    def iterate(iterations, step_size):
+    def train_discriminator(iterations, step_size):
         with open(args.log, 'w') as fp:
             for _ in xrange(iterations):
                 X, y = batcher.next_batch()
@@ -118,7 +118,7 @@ if __name__ == "__main__":
           
 
     # Train accuracy
-    def train_accuracy(num_batches=100):
+    def calculate_accuracy(num_batches=100):
         '''Calculate the training accuracy over number of batches. Calculates
            accuracy based on prediction at final time-step'''
         errors = 0
