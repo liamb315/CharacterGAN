@@ -114,8 +114,8 @@ if __name__ == '__main__':
 	generator = Sequence(Vector(len(text_encoding), batch_size=100)) >> Repeat(LSTM(1024, stateful=True), 2) >> Softmax(len(text_encoding))
 
 	# logging.debug('Loading prior model...')
-	with open('models/generative-model-0.0.pkl', 'rb') as fp:
-		generator.set_state(pickle.load(fp))
+	#with open('models/generative-model-0.0.pkl', 'rb') as fp:
+	#	generator.set_state(pickle.load(fp))
 
 	# Optimization procedure
 	rmsprop = RMSProp(generator, CrossEntropy())
@@ -129,6 +129,8 @@ if __name__ == '__main__':
 				print 'Loss[%u]: %f' % (_, loss)
 				f.flush()
 
+		with open('models/generative-model-1.0.pkl', 'wb') as g:
+			pickle.dump(generator.get_state(), g)
 	# def generate_sample(length):
  #        '''Generate a sample from the current version of the generator'''
  #        characters = [np.array([0])]
