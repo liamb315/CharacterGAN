@@ -63,13 +63,13 @@ if __name__ == "__main__":
     # Stage I 
     ##########
     # Load parameters after chaining operations due to known issue in DeepX
-    with open('models/generative-model-0.0.pkl', 'rb') as fp:
-        generator.set_state(pickle.load(fp))
+    # with open('models/generative-model-0.0.pkl', 'rb') as fp:
+    #     generator.set_state(pickle.load(fp))
 
-    with open('models/discriminative-model-0.2.pkl', 'rb') as fp:
-        state = pickle.load(fp)
-        state = (state[0][0], (state[0][1], state[1]))
-        discriminator.set_state(state)
+    # with open('models/discriminative-model-0.2.pkl', 'rb') as fp:
+    #     state = pickle.load(fp)
+    #     state = (state[0][0], (state[0][1], state[1]))
+    #     discriminator.set_state(state)
     
 
     def generate_sample():
@@ -125,12 +125,13 @@ if __name__ == "__main__":
                 loss = rmsprop_G.train(batch, y, step_size)
                 if i == 0:
                     avg_loss.append(loss)
-                avg_loss.append(loss * 0.05 + avg_loss[-1] * 0.95)
+                avg_loss.append(loss * 0.01 + avg_loss[-1] * 0.99)
                 
                 print >> fp,  "Generator Loss[%u]: %f (%f)" % (i, loss, avg_loss[-1])
                 print "Generator Loss[%u]: %f (%f)" % (i, loss, avg_loss[-1])
                 fp.flush()
-                # if i > 5:
+                
+                # if i > 10:
                 #     avg_loss_delta = avg_loss[-2]/avg_loss[-1] - 1
                 #     if avg_loss_delta < stop_criteria:
                 #         return 
@@ -175,13 +176,13 @@ if __name__ == "__main__":
                 loss = rmsprop_D.train(X, y, step_size)
                 if i == 0:
                     avg_loss.append(loss)
-                avg_loss.append(loss * 0.05 + avg_loss[-1] * 0.95)
+                avg_loss.append(loss * 0.01 + avg_loss[-1] * 0.99)
 
                 print >> fp,  "Discriminator Loss[%u]: %f (%f)" % (i, loss, avg_loss[-1])
                 print "Discriminator Loss[%u]: %f (%f)" % (i, loss, avg_loss[-1])
                 fp.flush()
                 
-                # if i > 5:
+                # if i > 10:
                 #     avg_loss_delta = avg_loss[-2]/avg_loss[-1] - 1
                 #     if avg_loss_delta < stop_criteria:
                 #         return 
@@ -198,13 +199,17 @@ if __name__ == "__main__":
             real_reviews = [r.replace('<STR>', '') for r in real_reviews]
 
         real_reviews = real_reviews[0:1000] #TEMP:  Just testing
+        fake_reviews = generate_fake_reviews(1000)
 
         with open(args.log, 'w') as fp:
             print >> fp, 'Alternating GAN for ',num_iter,' iterations.'
 
         for i in xrange(num_iter):
+            logging.debug('Training discriminator...')
+            train_discriminator(50, 5, real_reviews, fake_reviews)
+
             logging.debug('Training generator...')
-            train_generator(50, 1) 
+            train_generator(100, 10) 
             
             logging.debug('Generating new fake reviews...')
             fake_reviews = generate_fake_reviews(1000)
@@ -212,9 +217,6 @@ if __name__ == "__main__":
                 for review in fake_reviews[0:10]:
                     print review
                     print >> f, review
-
-            logging.debug('Training discriminator...')
-            train_discriminator(25, 10, real_reviews, fake_reviews)
 
             with open('models/gan-model-current.pkl', 'wb') as f:
                 pickle.dump(gan.get_state(), f)

@@ -131,7 +131,8 @@ if __name__ == '__main__':
 
 		with open('models/generative-model-1.0.pkl', 'wb') as g:
 			pickle.dump(generator.get_state(), g)
-	# def generate_sample(length):
+	
+    # def generate_sample(length):
  #        '''Generate a sample from the current version of the generator'''
  #        characters = [np.array([0])]
  #        generator2.reset_states()
@@ -140,7 +141,4 @@ if __name__ == '__main__':
  #        	characters.append(output.argmax(axis=2)[0])
  #        	print characters
  #        characters =  np.array(characters).ravel()
- #        num_seq  = NumberSequence(characters).decode(text_encoding)
- #        return_str = ''.join(num_seq.seq)
- #        return return_str
-					
+ #        num_seq  = NumberSequence(character
