@@ -48,15 +48,15 @@ if __name__ == "__main__":
     logging.debug('Compiling GAN...')
     gan = generator >> discriminator.right
 
-    # Optimization for the generator (G)
-    gan.right.frozen = True
-    assert gan.get_parameters() == gan.left.get_parameters()
-    rmsprop_G = RMSProp(gan, ConvexSequentialLoss(CrossEntropy(), 0.5))
+    # # Optimization for the generator (G)
+    # gan.right.frozen = True
+    # assert gan.get_parameters() == gan.left.get_parameters()
+    # rmsprop_G = RMSProp(gan, ConvexSequentialLoss(CrossEntropy(), 0.5))
 
-    # Optimization for the discrimator (D)
-    gan.right.frozen = False
-    assert len(discriminator.get_parameters()) > 0
-    rmsprop_D = RMSProp(discriminator, CrossEntropy(), clip_gradients=5)
+    # # Optimization for the discrimator (D)
+    # gan.right.frozen = False
+    # assert len(discriminator.get_parameters()) > 0
+    # rmsprop_D = RMSProp(discriminator, CrossEntropy(), clip_gradients=5)
 
 
     ##########
@@ -108,24 +108,44 @@ if __name__ == "__main__":
     # Stage II 
     ###########
 
-    def train_generator(iterations, step_size):
-        '''Train the generative model via a GAN framework'''  
+    def train_generator(iterations, step_size, stop_criteria=0.001):
+        '''Train the generative model (G) via a GAN framework'''  
+        # Optimization for the generator (G)
+        gan.right.frozen = True
+        assert gan.get_parameters() == gan.left.get_parameters()
+        rmsprop_G = RMSProp(gan, ConvexSequentialLoss(CrossEntropy(), 0.5))
         rmsprop_G.reset_parameters()
+
+        avg_loss = []
         with open(args.log, 'a+') as fp:
-            for _ in xrange(iterations):
+            for i in xrange(iterations):
                 index = text_encoding_G.encode('<STR>')
                 batch = np.tile(text_encoding_G.convert_representation([index]), (args.batch_size, 1))
                 y = np.tile([0, 1], (args.sequence_length, args.batch_size, 1))
                 loss = rmsprop_G.train(batch, y, step_size)
-                print >> fp,  "Generator Loss[%u]: %f" % (_, loss)
-                print "Generator Loss[%u]: %f" % (_, loss)
+                if i == 0:
+                    avg_loss.append(loss)
+                avg_loss.append(loss * 0.05 + avg_loss[-1] * 0.95)
+                
+                print >> fp,  "Generator Loss[%u]: %f (%f)" % (i, loss, avg_loss[-1])
+                print "Generator Loss[%u]: %f (%f)" % (i, loss, avg_loss[-1])
                 fp.flush()
+                # if i > 5:
+                #     avg_loss_delta = avg_loss[-2]/avg_loss[-1] - 1
+                #     if avg_loss_delta < stop_criteria:
+                #         return 
         
         
-    def train_discriminator(iterations, step_size, real_reviews, fake_reviews):
-        '''Train the discriminator on real and fake reviews'''
+    def train_discriminator(iterations, step_size, real_reviews, fake_reviews, stop_criteria=0.001):
+        '''Train the discriminator (D) on real and fake reviews'''
         random.seed(1)
+        
+        # Optimization for the discrimator (D)
+        gan.right.frozen = False
+        assert len(discriminator.get_parameters()) > 0
+        rmsprop_D = RMSProp(discriminator, CrossEntropy(), clip_gradients=5)
         rmsprop_D.reset_parameters()
+
         # Load and shuffle reviews
         real_targets, fake_targets = [],  []
         for _ in xrange(len(real_reviews)):
@@ -148,13 +168,23 @@ if __name__ == "__main__":
         # Construct the batcher
         batcher = WindowedBatcher([final_seq], [text_encoding_D], final_target, sequence_length=200, batch_size=100)
         
+        avg_loss = []
         with open(args.log, 'a+') as fp:
-            for _ in xrange(iterations):
+            for i in xrange(iterations):
                 X, y = batcher.next_batch()
                 loss = rmsprop_D.train(X, y, step_size)
-                print >> fp,  "Discriminator Loss[%u]: %f" % (_, loss)
-                print "Discriminator Loss[%u]: %f" % (_, loss)
+                if i == 0:
+                    avg_loss.append(loss)
+                avg_loss.append(loss * 0.05 + avg_loss[-1] * 0.95)
+
+                print >> fp,  "Discriminator Loss[%u]: %f (%f)" % (i, loss, avg_loss[-1])
+                print "Discriminator Loss[%u]: %f (%f)" % (i, loss, avg_loss[-1])
                 fp.flush()
+                
+                # if i > 5:
+                #     avg_loss_delta = avg_loss[-2]/avg_loss[-1] - 1
+                #     if avg_loss_delta < stop_criteria:
+                #         return 
 
 
     def alternating_gan(num_iter):
@@ -174,18 +204,17 @@ if __name__ == "__main__":
 
         for i in xrange(num_iter):
             logging.debug('Training generator...')
-            #TEMP:  Eventually have stopping criterion
-            train_generator(10, 1) 
+            train_generator(50, 1) 
             
             logging.debug('Generating new fake reviews...')
             fake_reviews = generate_fake_reviews(1000)
             with open('data/gan_reviews_'+str(i)+'.txt', 'w') as f:
                 for review in fake_reviews[0:10]:
+                    print review
                     print >> f, review
 
             logging.debug('Training discriminator...')
-            #TEMP:  Eventually have stopping criterion
-            train_discriminator(5, 100, real_reviews, fake_reviews)
+            train_discriminator(25, 10, real_reviews, fake_reviews)
 
             with open('models/gan-model-current.pkl', 'wb') as f:
                 pickle.dump(gan.get_state(), f)
