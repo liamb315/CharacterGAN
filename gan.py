@@ -63,13 +63,13 @@ if __name__ == "__main__":
     # Stage I 
     ##########
     # Load parameters after chaining operations due to known issue in DeepX
-    # with open('models/generative-model-0.0.pkl', 'rb') as fp:
-    #     generator.set_state(pickle.load(fp))
+    with open('models/generative-model-0.0.pkl', 'rb') as fp:
+        generator.set_state(pickle.load(fp))
 
-    # with open('models/discriminative-model-0.2.pkl', 'rb') as fp:
-    #     state = pickle.load(fp)
-    #     state = (state[0][0], (state[0][1], state[1]))
-    #     discriminator.set_state(state)
+    with open('models/discriminative-model-0.2.pkl', 'rb') as fp:
+        state = pickle.load(fp)
+        state = (state[0][0], (state[0][1], state[1]))
+        discriminator.set_state(state)
     
 
     def generate_sample():
