@@ -48,15 +48,15 @@ if __name__ == "__main__":
     logging.debug('Compiling GAN...')
     gan = generator >> discriminator.right
 
-    # # Optimization for the generator (G)
-    # gan.right.frozen = True
-    # assert gan.get_parameters() == gan.left.get_parameters()
-    # rmsprop_G = RMSProp(gan, ConvexSequentialLoss(CrossEntropy(), 0.5))
+    # Optimization for the generator (G)
+    gan.right.frozen = True
+    assert gan.get_parameters() == gan.left.get_parameters()
+    rmsprop_G = RMSProp(gan, ConvexSequentialLoss(CrossEntropy(), 0.5))
 
-    # # Optimization for the discrimator (D)
-    # gan.right.frozen = False
-    # assert len(discriminator.get_parameters()) > 0
-    # rmsprop_D = RMSProp(discriminator, CrossEntropy(), clip_gradients=5)
+    # Optimization for the discrimator (D)
+    gan.right.frozen = False
+    assert len(discriminator.get_parameters()) > 0
+    rmsprop_D = RMSProp(discriminator, CrossEntropy(), clip_gradients=5)
 
 
     ##########
@@ -110,11 +110,11 @@ if __name__ == "__main__":
 
     def train_generator(iterations, step_size, stop_criteria=0.001):
         '''Train the generative model (G) via a GAN framework'''  
-        # Optimization for the generator (G)
-        gan.right.frozen = True
-        assert gan.get_parameters() == gan.left.get_parameters()
-        rmsprop_G = RMSProp(gan, ConvexSequentialLoss(CrossEntropy(), 0.5))
-        rmsprop_G.reset_parameters()
+        # # Optimization for the generator (G)
+        # gan.right.frozen = True
+        # assert gan.get_parameters() == gan.left.get_parameters()
+        # rmsprop_G = RMSProp(gan, ConvexSequentialLoss(CrossEntropy(), 0.5))
+        # rmsprop_G.reset_parameters()
 
         avg_loss = []
         with open(args.log, 'a+') as fp:
@@ -141,11 +141,11 @@ if __name__ == "__main__":
         '''Train the discriminator (D) on real and fake reviews'''
         random.seed(1)
         
-        # Optimization for the discrimator (D)
-        gan.right.frozen = False
-        assert len(discriminator.get_parameters()) > 0
-        rmsprop_D = RMSProp(discriminator, CrossEntropy(), clip_gradients=5)
-        rmsprop_D.reset_parameters()
+        # # Optimization for the discrimator (D)
+        # gan.right.frozen = False
+        # assert len(discriminator.get_parameters()) > 0
+        # rmsprop_D = RMSProp(discriminator, CrossEntropy(), clip_gradients=5)
+        # rmsprop_D.reset_parameters()
 
         # Load and shuffle reviews
         real_targets, fake_targets = [],  []

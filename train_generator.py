@@ -87,6 +87,20 @@ class WindowedBatcher(object):
         self.batch_index += 1
         return X, y
 
+def generate_sample(length):
+    '''Generate a sample from the current version of the generator'''
+    characters = [np.array([0])]
+    generator2.reset_states()
+    for i in xrange(length):
+        print "CHAR", characters[-1]
+        output = generator2.predict(np.eye(len(text_encoding))[None, characters[-1]])
+        print output, output.argmax()
+        sample = output.argmax() #np.random.choice(xrange(len(text_encoding)), p=output[0, 0])
+        characters.append(np.array([sample]))
+    characters =  np.array(characters).ravel()
+    num_seq  = NumberSequence(characters[1:])
+    return num_seq.decode(text_encoding)
+
 
 if __name__ == '__main__':
 	args = parse_args()
@@ -112,11 +126,13 @@ if __name__ == '__main__':
 
 	logging.debug("Compiling discriminator...")
 	generator = Sequence(Vector(len(text_encoding), batch_size=100)) >> Repeat(LSTM(1024, stateful=True), 2) >> Softmax(len(text_encoding))
+    generator2 = Sequence(Vector(len(text_encoding), batch_size=1)) >> Repeat(LSTM(1024, stateful=True), 2) >> Softmax(len(text_encoding))
 
-	# logging.debug('Loading prior model...')
-	#with open('models/generative-model-0.0.pkl', 'rb') as fp:
-	#	generator.set_state(pickle.load(fp))
-
+	logging.debug('Loading prior model...')
+	with open('models/generative-model-0.0.pkl', 'rb') as fp:
+		generator.set_state(pickle.load(fp))
+    with open('models/generative-model-0.0.pkl', 'rb') as fp:
+        generator2.set_state(pickle.load(fp))
 	# Optimization procedure
 	rmsprop = RMSProp(generator, CrossEntropy())
 
@@ -131,14 +147,3 @@ if __name__ == '__main__':
 
 		with open('models/generative-model-1.0.pkl', 'wb') as g:
 			pickle.dump(generator.get_state(), g)
-	
-    # def generate_sample(length):
- #        '''Generate a sample from the current version of the generator'''
- #        characters = [np.array([0])]
- #        generator2.reset_states()
- #        for i in xrange(length):
- #        	output = generator2.predict(np.eye(len(text_encoding))[None, characters[-1]])
- #        	characters.append(output.argmax(axis=2)[0])
- #        	print characters
- #        characters =  np.array(characters).ravel()
- #        num_seq  = NumberSequence(character
