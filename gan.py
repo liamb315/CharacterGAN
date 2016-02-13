@@ -46,7 +46,7 @@ if __name__ == "__main__":
     generator = Generate(Vector(len(text_encoding_G)) >> Repeat(LSTM(1024), 2) >> Softmax(len(text_encoding_G)), args.sequence_length)
     
     logging.debug('Compiling human-readable generator...')
-    generator2 = Sequence(Vector(len(text_encoding_G))) >> Repeat(LSTM(1024), 2) >> Softmax(len(text_encoding_G))
+    generator2 = Sequence(Vector(len(text_encoding_G), batch_size=1)) >> Repeat(LSTM(1024, stateful=True), 2) >> Softmax(len(text_encoding_G))
 
     logging.debug('Compiling GAN...')
     gan = generator >> discriminator.right
