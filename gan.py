@@ -45,6 +45,9 @@ if __name__ == "__main__":
     logging.debug('Compiling generator...')
     generator = Generate(Vector(len(text_encoding_G)) >> Repeat(LSTM(1024), 2) >> Softmax(len(text_encoding_G)), args.sequence_length)
     
+    logging.debug('Compiling human-readable generator...')
+    generator2 = Sequence(Vector(len(text_encoding_G))) >> Repeat(LSTM(1024), 2) >> Softmax(len(text_encoding_G))
+
     logging.debug('Compiling GAN...')
     gan = generator >> discriminator.right
 
@@ -66,6 +69,9 @@ if __name__ == "__main__":
     with open('models/generative-model-0.0.renamed.pkl', 'rb') as fp:
         generator.set_state(pickle.load(fp))
 
+    with open('models/generative-model-0.0.renamed.pkl', 'rb') as fp:
+        generator2.set_state(pickle.load(fp))
+
     with open('models/discriminative-model-0.2.renamed.pkl', 'rb') as fp:
         state = pickle.load(fp)
         state = (state[0][0], (state[0][1], state[1]))
@@ -79,6 +85,18 @@ if __name__ == "__main__":
         return_str = ''.join(num_seq.seq)
         return_str = return_str.replace('<STR>', '').replace('<EOS>', '')
         return return_str
+
+
+    def generate_sample_2(length):
+        '''Generate a sample from the current version of the generator'''
+        characters = [np.array([0])]
+        generator2.reset_states()
+        for i in xrange(length):
+            output = generator2.predict(np.eye(len(text_encoding_G))[None, characters[-1]])
+            sample = np.random.choice(xrange(len(text_encoding_G)), p=output[0, 0])
+            characters.append(np.array([sample]))
+        characters =  np.array(characters).ravel()
+        return ''.join([text_encoding_G.decode(c) for c in characters[1:]])
 
 
     def generate_fake_reviews(num_reviews):
@@ -198,21 +216,21 @@ if __name__ == "__main__":
             real_reviews = [r.replace('\x05',  '') for r in real_reviews] 
             real_reviews = [r.replace('<STR>', '') for r in real_reviews]
 
-        real_reviews = real_reviews[0:1000] #TEMP:  Just testing
-        fake_reviews = generate_fake_reviews(1000)
+        real_reviews = real_reviews[0:25] #TEMP:  Just testing
+        fake_reviews = generate_fake_reviews(25)
 
         with open(args.log, 'w') as fp:
             print >> fp, 'Alternating GAN for ',num_iter,' iterations.'
 
         for i in xrange(num_iter):
             logging.debug('Training discriminator...')
-            train_discriminator(50, 5, real_reviews, fake_reviews)
+            train_discriminator(5, 5, real_reviews, fake_reviews)
 
             logging.debug('Training generator...')
-            train_generator(100, 10) 
+            train_generator(10, 10) 
             
             logging.debug('Generating new fake reviews...')
-            fake_reviews = generate_fake_reviews(1000)
+            fake_reviews = generate_fake_reviews(25)
             with open('data/gan_reviews_'+str(i)+'.txt', 'w') as f:
                 for review in fake_reviews[0:10]:
                     print review
@@ -221,6 +239,8 @@ if __name__ == "__main__":
             with open('models/gan-model-current.pkl', 'wb') as f:
                 pickle.dump(gan.get_state(), f)
 
+            with open('models/gan/generator-gan-model_'+str(i)+'.pkl', 'wb') as f:
+                pickle.dump(generator.get_state(), f)
 
 
 
