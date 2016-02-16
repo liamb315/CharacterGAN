@@ -16,7 +16,8 @@ from deepx.loss import *
 from deepx.optimize import *
 from argparse import ArgumentParser
 
-logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger()
+logger.setLevel(logging.DEBUG)
 
 
 def parse_args():
@@ -66,17 +67,20 @@ if __name__ == "__main__":
     # Stage I 
     ##########
     # Load parameters after chaining operations due to known issue in DeepX
-    with open('models/generative-model-0.0.renamed.pkl', 'rb') as fp:
-        generator.set_state(pickle.load(fp))
+    # with open('models/generative-model-0.0.renamed.pkl', 'rb') as fp:
+    #     generator.set_state(pickle.load(fp))
 
-    with open('models/generative-model-0.0.renamed.pkl', 'rb') as fp:
-        generator2.set_state(pickle.load(fp))
+    # with open('models/generative-model-0.0.renamed.pkl', 'rb') as fp:
+    #     generator2.set_state(pickle.load(fp))
 
-    with open('models/discriminative-model-0.2.renamed.pkl', 'rb') as fp:
-        state = pickle.load(fp)
-        state = (state[0][0], (state[0][1], state[1]))
-        discriminator.set_state(state)
+    # with open('models/discriminative-model-0.0.renamed.pkl', 'rb') as fp:
+    #     state = pickle.load(fp)
+    #     state = (state[0][0], (state[0][1], state[1]))
+    #     discriminator.set_state(state)
     
+    with open('models/gan/gan-model-1.0.pkl', 'rb') as fp:
+        gan.set_state(pickle.load(fp))
+
 
     def generate_sample():
         '''Generate a sample from the current version of the generator'''
@@ -99,12 +103,12 @@ if __name__ == "__main__":
         return ''.join([text_encoding_G.decode(c) for c in characters[1:]])
 
 
-    def generate_fake_reviews(num_reviews):
+    def generate_fake_reviews(num_reviews, len_reviews):
         '''Generate fake reviews using the current generator'''
         fake_reviews = []
         
         for _ in xrange(num_reviews):
-            review = generate_sample()
+            review = generate_sample_2(len_reviews)
             fake_reviews.append(review)
         
         fake_reviews = [r.replace('\x05',  '') for r in fake_reviews]
@@ -121,6 +125,16 @@ if __name__ == "__main__":
         X          = np.eye(len(text_encoding_D))[num_seq_np]
         return discriminator.predict(X)
 
+    def classification_accuracy(reviews, labels):
+        '''Classification accuracy based on prediction at final time-step'''
+        correct = 0.0
+        for review, label in zip(reviews, labels):
+            pred   = predict(review)[-1][0]
+            print pred, label, pred.argmax() == label.argmax()
+            if pred.argmax() == label.argmax():
+                correct += 1
+        return correct/len(reviews)
+
 
     ###########
     # Stage II 
@@ -128,12 +142,7 @@ if __name__ == "__main__":
 
     def train_generator(iterations, step_size, stop_criteria=0.001):
         '''Train the generative model (G) via a GAN framework'''  
-        # # Optimization for the generator (G)
-        # gan.right.frozen = True
-        # assert gan.get_parameters() == gan.left.get_parameters()
-        # rmsprop_G = RMSProp(gan, ConvexSequentialLoss(CrossEntropy(), 0.5))
-        # rmsprop_G.reset_parameters()
-
+        
         avg_loss = []
         with open(args.log, 'a+') as fp:
             for i in xrange(iterations):
@@ -143,7 +152,7 @@ if __name__ == "__main__":
                 loss = rmsprop_G.train(batch, y, step_size)
                 if i == 0:
                     avg_loss.append(loss)
-                avg_loss.append(loss * 0.01 + avg_loss[-1] * 0.99)
+                avg_loss.append(loss * 0.05 + avg_loss[-1] * 0.95)
                 
                 print >> fp,  "Generator Loss[%u]: %f (%f)" % (i, loss, avg_loss[-1])
                 print "Generator Loss[%u]: %f (%f)" % (i, loss, avg_loss[-1])
@@ -159,12 +168,6 @@ if __name__ == "__main__":
         '''Train the discriminator (D) on real and fake reviews'''
         random.seed(1)
         
-        # # Optimization for the discrimator (D)
-        # gan.right.frozen = False
-        # assert len(discriminator.get_parameters()) > 0
-        # rmsprop_D = RMSProp(discriminator, CrossEntropy(), clip_gradients=5)
-        # rmsprop_D.reset_parameters()
-
         # Load and shuffle reviews
         real_targets, fake_targets = [],  []
         for _ in xrange(len(real_reviews)):
@@ -175,7 +178,7 @@ if __name__ == "__main__":
         all_reviews = zip(real_reviews, real_targets) + zip(fake_reviews, fake_targets)
         random.shuffle(all_reviews)
         
-        reviews, targets = zip(*all_reviews[:1000]) #TEMP:  Just testing
+        reviews, targets = zip(*all_reviews) 
 
         logging.debug("Converting to one-hot...")
         review_sequences = [CharacterSequence.from_string(review) for review in reviews]
@@ -194,7 +197,7 @@ if __name__ == "__main__":
                 loss = rmsprop_D.train(X, y, step_size)
                 if i == 0:
                     avg_loss.append(loss)
-                avg_loss.append(loss * 0.01 + avg_loss[-1] * 0.99)
+                avg_loss.append(loss * 0.05 + avg_loss[-1] * 0.95)
 
                 print >> fp,  "Discriminator Loss[%u]: %f (%f)" % (i, loss, avg_loss[-1])
                 print "Discriminator Loss[%u]: %f (%f)" % (i, loss, avg_loss[-1])
@@ -206,7 +209,7 @@ if __name__ == "__main__":
                 #         return 
 
 
-    def alternating_gan(num_iter):
+    def alternating_gan(num_epoch, dis_iter, gen_iter, dis_lr=1, gen_lr=10, num_reviews = 25, seq_length=200):
         '''Alternating GAN procedure for jointly training the generator (G) 
         and the discriminator (D)'''
 
@@ -215,32 +218,45 @@ if __name__ == "__main__":
             real_reviews = [r[3:] for r in f.read().strip().split('\n')]
             real_reviews = [r.replace('\x05',  '') for r in real_reviews] 
             real_reviews = [r.replace('<STR>', '') for r in real_reviews]
-
-        real_reviews = real_reviews[0:25] #TEMP:  Just testing
-        fake_reviews = generate_fake_reviews(25)
+        
+        logging.debug('Generating fake reviews...')
+        fake_reviews = generate_fake_reviews(num_reviews, seq_length) 
 
         with open(args.log, 'w') as fp:
-            print >> fp, 'Alternating GAN for ',num_iter,' iterations.'
+            print >> fp, 'Alternating GAN for ',num_epoch,' epochs.'
 
-        for i in xrange(num_iter):
+        for i in xrange(num_epoch):
             logging.debug('Training discriminator...')
-            train_discriminator(5, 5, real_reviews, fake_reviews)
+            last_review  = np.random.randint(num_reviews, len(real_reviews)) 
+            real_reviews = real_reviews[last_review-num_reviews : last_review] 
+            train_discriminator(dis_iter, dis_lr, real_reviews, fake_reviews)
 
             logging.debug('Training generator...')
-            train_generator(10, 10) 
+            train_generator(gen_iter, gen_lr) 
             
             logging.debug('Generating new fake reviews...')
-            fake_reviews = generate_fake_reviews(25)
-            with open('data/gan_reviews_'+str(i)+'.txt', 'w') as f:
-                for review in fake_reviews[0:10]:
+            generator2.set_state(generator.get_state())
+
+            fake_reviews = generate_fake_reviews(num_reviews, seq_length) 
+
+            # fake_labels = []
+            # for _ in xrange(len(fake_reviews)):
+            #     fake_labels.append([1,0])
+            # fake_labels = np.asarray(fake_labels)
+            # print classification_accuracy(fake_reviews, fake_labels)
+
+            with open('data/gan/gan_reviews_'+str(i)+'.txt', 'wb') as f:
+                for review in fake_reviews[:10]:
                     print review
                     print >> f, review
 
-            with open('models/gan-model-current.pkl', 'wb') as f:
+            with open('models/gan/gan-model-current.pkl', 'wb') as f:
                 pickle.dump(gan.get_state(), f)
 
-            with open('models/gan/generator-gan-model_'+str(i)+'.pkl', 'wb') as f:
+            with open('models/generative/generative-model-epoch-'+str(i)+'.pkl', 'wb') as f:
                 pickle.dump(generator.get_state(), f)
 
+            with open('models/discriminative/discriminative-model-epoch-'+str(i)+'.pkl', 'wb') as f:
+                pickle.dump(discriminator.get_state(), f)
 
 
