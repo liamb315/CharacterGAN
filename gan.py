@@ -67,19 +67,19 @@ if __name__ == "__main__":
     # Stage I 
     ##########
     # Load parameters after chaining operations due to known issue in DeepX
-    # with open('models/generative-model-0.0.renamed.pkl', 'rb') as fp:
-    #     generator.set_state(pickle.load(fp))
+    with open('models/generative/generative-model-0.0.renamed.pkl', 'rb') as fp:
+        generator.set_state(pickle.load(fp))
 
-    # with open('models/generative-model-0.0.renamed.pkl', 'rb') as fp:
-    #     generator2.set_state(pickle.load(fp))
+    with open('models/generative/generative-model-0.0.renamed.pkl', 'rb') as fp:
+        generator2.set_state(pickle.load(fp))
 
-    # with open('models/discriminative-model-0.0.renamed.pkl', 'rb') as fp:
-    #     state = pickle.load(fp)
-    #     state = (state[0][0], (state[0][1], state[1]))
-    #     discriminator.set_state(state)
+    with open('models/discriminative/discriminative-model-0.0.renamed.pkl', 'rb') as fp:
+        state = pickle.load(fp)
+        state = (state[0][0], (state[0][1], state[1]))
+        discriminator.set_state(state)
     
-    with open('models/gan/gan-model-1.0.pkl', 'rb') as fp:
-        gan.set_state(pickle.load(fp))
+    # with open('models/gan/   ', 'rb') as fp:
+    #     gan.set_state(pickle.load(fp))
 
 
     def generate_sample():
@@ -215,9 +215,9 @@ if __name__ == "__main__":
 
         logging.debug('Loading real reviews...')
         with open('data/real_beer_reviews.txt', 'r') as f:
-            real_reviews = [r[3:] for r in f.read().strip().split('\n')]
-            real_reviews = [r.replace('\x05',  '') for r in real_reviews] 
-            real_reviews = [r.replace('<STR>', '') for r in real_reviews]
+            real_reviews_all = [r[3:] for r in f.read().strip().split('\n')]
+            real_reviews_all = [r.replace('\x05',  '') for r in real_reviews_all] 
+            real_reviews_all = [r.replace('<STR>', '') for r in real_reviews_all]
         
         logging.debug('Generating fake reviews...')
         fake_reviews = generate_fake_reviews(num_reviews, seq_length) 
@@ -227,8 +227,8 @@ if __name__ == "__main__":
 
         for i in xrange(num_epoch):
             logging.debug('Training discriminator...')
-            last_review  = np.random.randint(num_reviews, len(real_reviews)) 
-            real_reviews = real_reviews[last_review-num_reviews : last_review] 
+            last_review  = np.random.randint(num_reviews, len(real_reviews_all)) 
+            real_reviews = real_reviews_all[last_review-num_reviews : last_review] 
             train_discriminator(dis_iter, dis_lr, real_reviews, fake_reviews)
 
             logging.debug('Training generator...')
@@ -250,7 +250,8 @@ if __name__ == "__main__":
                     print review
                     print >> f, review
 
-            with open('models/gan/gan-model-current.pkl', 'wb') as f:
+            logging.debug('Saving models...')
+            with open('models/gan/gan-model-epoch'+str(i)+'.pkl', 'wb') as f:
                 pickle.dump(gan.get_state(), f)
 
             with open('models/generative/generative-model-epoch-'+str(i)+'.pkl', 'wb') as f:
