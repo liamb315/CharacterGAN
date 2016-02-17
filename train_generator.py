@@ -144,3 +144,5 @@ if __name__ == '__main__':
 
 		with open('models/generative/generative-model-current.pkl', 'wb') as g:
 			pickle.dump(generator.get_state(), g)
+
+		generator2.set_state(generator.get_state())
