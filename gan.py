@@ -22,7 +22,7 @@ logger.setLevel(logging.DEBUG)
 
 def parse_args():
     argparser = ArgumentParser()
-    argparser.add_argument('--sequence_length', default=100)
+    argparser.add_argument('--sequence_length', default=200)
     argparser.add_argument('--batch_size', default=100)
     argparser.add_argument('--log', default='loss/gan_log_current.txt')
     return argparser.parse_args()
@@ -67,10 +67,10 @@ if __name__ == "__main__":
     # Stage I 
     ##########
     # Load parameters after chaining operations due to known issue in DeepX
-    with open('models/generative/generative-model-0.0.renamed.pkl', 'rb') as fp:
+    with open('models/generative/generative-model-0.1.renamed.pkl', 'rb') as fp:
         generator.set_state(pickle.load(fp))
 
-    with open('models/generative/generative-model-0.0.renamed.pkl', 'rb') as fp:
+    with open('models/generative/generative-model-0.1.renamed.pkl', 'rb') as fp:
         generator2.set_state(pickle.load(fp))
 
     with open('models/discriminative/discriminative-model-0.0.renamed.pkl', 'rb') as fp:
@@ -209,7 +209,7 @@ if __name__ == "__main__":
                 #         return 
 
 
-    def alternating_gan(num_epoch, dis_iter, gen_iter, dis_lr=1, gen_lr=10, num_reviews = 25, seq_length=200):
+    def alternating_gan(num_epoch, dis_iter, gen_iter, dis_lr=1, gen_lr=1, num_reviews = 25, seq_length=args.sequence_length):
         '''Alternating GAN procedure for jointly training the generator (G) 
         and the discriminator (D)'''
 
