@@ -53,13 +53,13 @@ if __name__ == "__main__":
     gan = generator >> discriminator.right
 
     # Optimization for the generator (G)
-    gan.right.frozen = True
-    assert gan.get_parameters() == gan.left.get_parameters()
-    rmsprop_G = RMSProp(gan, ConvexSequentialLoss(CrossEntropy(), 0.5))
+    # gan.right.frozen = True
+    # assert gan.get_parameters() == gan.left.get_parameters()
+    rmsprop_G = RMSProp(gan.left >> Freeze(gan.right), ConvexSequentialLoss(CrossEntropy(), 0.5))
 
     # Optimization for the discrimator (D)
-    gan.right.frozen = False
-    assert len(discriminator.get_parameters()) > 0
+    # gan.right.frozen = False
+    # assert len(discriminator.get_parameters()) > 0
     rmsprop_D = RMSProp(discriminator, CrossEntropy(), clip_gradients=5)
 
 
