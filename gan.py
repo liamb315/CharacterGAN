@@ -42,7 +42,7 @@ if __name__ == "__main__":
 
     logging.debug('Compiling discriminator...')
     discriminator = Sequence(Vector(len(text_encoding_D))) >> (Repeat(LSTM(1024), 2) >> Softmax(2))
-    
+
     logging.debug('Compiling generator...')
     generator = Generate(Vector(len(text_encoding_G)) >> Repeat(LSTM(1024), 2) >> Softmax(len(text_encoding_G)), args.sequence_length)
     
@@ -259,5 +259,6 @@ if __name__ == "__main__":
 
             with open('models/discriminative/discriminative-model-epoch-'+str(i)+'.pkl', 'wb') as f:
                 pickle.dump(discriminator.get_state(), f)
+
 
 
