@@ -43,7 +43,7 @@ if __name__ == "__main__":
         text_encoding_D.include_start_token = False
 
     logging.debug('Compiling discriminator...')
-    discriminator = Sequence(Vector(len(text_encoding_D))) >> (LSTM(1024) >> Softmax(2))
+    discriminator = Sequence(Vector(len(text_encoding_D))) >> (Repeat(LSTM(1024), 2) >> Softmax(2))
 
     logging.debug('Compiling generator...')
     generator = Generate(Vector(len(text_encoding_G)) >> Repeat(LSTM(1024), 2) >> Softmax(len(text_encoding_G)), args.sequence_length)
