@@ -25,7 +25,7 @@ logger.setLevel(logging.DEBUG)
 def parse_args():
     argparser = ArgumentParser()
     argparser.add_argument('--sequence_length', default=200)
-    argparser.add_argument('--batch_size', default=100)
+    argparser.add_argument('--batch_size', default=30)
     argparser.add_argument('--log', default='loss/gan_log_current.txt')
     return argparser.parse_args()
 
@@ -100,8 +100,8 @@ if __name__ == "__main__":
     def generate_fake_reviews(num_reviews):
         '''Generate fake reviews using the current generator'''
         pred_seq = generate_sample(num_reviews).argmax(axis=2).T
-        num_seq  = [NumberSequence(pred_seq[i]).decode(text_encoding_G) for i in xrange(num_reviews)]
-        return_str = [''.join(n.seq).replace('<STR>', '').replace('<EOS>', '').replace('\x05', '') for n in num_seq]
+        num_seq  = [NumberSequence(pred_seq[i]).decode(text_encoding_D) for i in xrange(num_reviews)]
+        return_str = [''.join(n.seq) for n in num_seq]
         return return_str
 
     def predict(text):
@@ -131,11 +131,15 @@ if __name__ == "__main__":
         '''Train the generative model (G) via a GAN framework'''
 
         avg_loss = []
+        # rmsprop_G.reset_parameters()
         with open(args.log, 'a+') as fp:
             for i in xrange(iterations):
                 batch = generate_sample(args.batch_size)
+                starts = np.tile(np.eye(len(text_encoding_D))[0], (1, batch.shape[1], 1))
+                batch = np.concatenate([starts, batch])[:-1]
                 y = np.tile([0, 1], (args.sequence_length, args.batch_size, 1))
                 loss = rmsprop_G.train(batch, y, step_size)
+                rmsprop_G.model.reset_states()
 
                 if i == 0:
                     avg_loss.append(loss)
@@ -150,37 +154,37 @@ if __name__ == "__main__":
                 #     if avg_loss_delta < stop_criteria:
                 #         return
 
-
-    def train_discriminator(iterations, step_size, real_reviews, fake_reviews, stop_criteria=0.001):
+    def train_discriminator(iterations, step_size, real_reviews, stop_criteria=0.001):
         '''Train the discriminator (D) on real and fake reviews'''
         random.seed(1)
 
+        num_reviews = len(real_reviews)
+
+        fake_reviews = generate_sample(num_reviews)
+
         # Load and shuffle reviews
-        real_targets, fake_targets = [],  []
-        for _ in xrange(len(real_reviews)):
-            real_targets.append([0, 1])
-        for _ in xrange(len(fake_reviews)):
-            fake_targets.append([1, 0])
-
-        all_reviews = zip(real_reviews, real_targets) + zip(fake_reviews, fake_targets)
-        random.shuffle(all_reviews)
-
-        reviews, targets = zip(*all_reviews)
-
         logging.debug("Converting to one-hot...")
-        review_sequences = [CharacterSequence.from_string(review) for review in reviews]
-        num_sequences = [c.encode(text_encoding_D) for c in review_sequences]
-        target_sequences = [NumberSequence([target]).replicate(len(r)) for target, r in zip(targets, num_sequences)]
-        final_seq = NumberSequence(np.concatenate([c.seq.astype(np.int32) for c in num_sequences]))
-        final_target = NumberSequence(np.concatenate([c.seq.astype(np.int32) for c in target_sequences]))
-
-        # Construct the batcher
-        batcher = WindowedBatcher([final_seq], [text_encoding_D], final_target, sequence_length=200, batch_size=10)
+        batches = []
+        targets = []
+        for i in xrange(len(real_reviews)):
+            batches.append(np.eye(len(text_encoding_D))[None, CharacterSequence.from_string(real_reviews[i][:args.sequence_length]).encode(text_encoding_D).seq.ravel()])
+            assert batches[-1].shape == (1, args.sequence_length, len(text_encoding_D)), batches[-1].shape
+            targets.append(np.tile([0, 1], (1, args.sequence_length, 1)))
+        for i in xrange(len(real_reviews)):
+            batches.append(fake_reviews[None, :, i])
+            assert batches[-1].shape == (1, args.sequence_length, len(text_encoding_D)), batches[-1].shape
+            targets.append(np.tile([1, 0], (1, args.sequence_length, 1)))
+        batches = np.concatenate(batches).swapaxes(0, 1)
+        targets = np.concatenate(targets).swapaxes(0, 1)
+        assert batches.shape == (args.sequence_length, num_reviews * 2, len(text_encoding_D)), batches.shape
+        assert targets.shape == (args.sequence_length, num_reviews * 2, 2), targets.shape
 
         avg_loss = []
+        # rmsprop_D.reset_parameters()
         with open(args.log, 'a+') as fp:
             for i in xrange(iterations):
-                X, y = batcher.next_batch()
+                idx = np.random.permutation(xrange(batches.shape[1]))[:args.batch_size]
+                X, y = batches[:, idx], targets[:, idx]
                 loss = rmsprop_D.train(X, y, step_size)
                 if i == 0:
                     avg_loss.append(loss)
@@ -190,13 +194,7 @@ if __name__ == "__main__":
                 print "Discriminator Loss[%u]: %f (%f)" % (i, loss, avg_loss[-1])
                 fp.flush()
 
-                # if i > 10:
-                #     avg_loss_delta = avg_loss[-2]/avg_loss[-1] - 1
-                #     if avg_loss_delta < stop_criteria:
-                #         return
-
-
-    def alternating_gan(num_epoch, dis_iter, gen_iter, dis_lr=1, gen_lr=1, num_reviews = 25, seq_length=args.sequence_length):
+    def alternating_gan(num_epoch, dis_iter, gen_iter, dis_lr=1, gen_lr=1, num_reviews = 100, seq_length=args.sequence_length):
         '''Alternating GAN procedure for jointly training the generator (G)
         and the discriminator (D)'''
 
@@ -204,6 +202,7 @@ if __name__ == "__main__":
         real_reviews_all = load_reviews('data/real_beer_reviews.txt')
 
         logging.debug('Generating fake reviews...')
+
         fake_reviews = generate_fake_reviews(num_reviews)
 
         with open(args.log, 'w') as fp:
@@ -212,8 +211,8 @@ if __name__ == "__main__":
         for i in xrange(num_epoch):
             logging.debug('Training discriminator...')
             last_review  = np.random.randint(num_reviews, len(real_reviews_all))
-            real_reviews = real_reviews_all[last_review-num_reviews : last_review]
-            train_discriminator(dis_iter, dis_lr, real_reviews, fake_reviews)
+            real_reviews = real_reviews_all[last_review : last_review + num_reviews]
+            train_discriminator(dis_iter, dis_lr, real_reviews)
 
             logging.debug('Training generator...')
             train_generator(gen_iter, gen_lr)
@@ -232,13 +231,13 @@ if __name__ == "__main__":
                     print review
                     print >> f, review
 
-            logging.debug('Saving models...')
-            with open('models/gan/gan-model-epoch'+str(i)+'.pkl', 'wb') as f:
-                pickle.dump(gan.get_state(), f)
+            # logging.debug('Saving models...')
+            # with open('models/gan/gan-model-epoch'+str(i)+'.pkl', 'wb') as f:
+                # pickle.dump(gan.get_state(), f)
 
-            with open('models/generative/generative-model-epoch-'+str(i)+'.pkl', 'wb') as f:
-                pickle.dump(generator.get_state(), f)
+            # with open('models/generative/generative-model-epoch-'+str(i)+'.pkl', 'wb') as f:
+                # pickle.dump(generator.get_state(), f)
 
-            with open('models/discriminative/discriminative-model-epoch-'+str(i)+'.pkl', 'wb') as f:
-                pickle.dump(discriminator.get_state(), f)
+            # with open('models/discriminative/discriminative-model-epoch-'+str(i)+'.pkl', 'wb') as f:
+                # pickle.dump(discriminator.get_state(), f)
 
