@@ -239,3 +239,4 @@ if __name__ == "__main__":
                 pickle.dump(discriminator.get_state(), f)
 
 
+
