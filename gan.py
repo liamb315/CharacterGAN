@@ -9,11 +9,13 @@ import logging
 import random
 import Tkinter
 from dataset import *
+from dataset.sequence import *
 from batcher import *
 from deepx.nn import *
 from deepx.rnn import *
 from deepx.loss import *
 from deepx.optimize import *
+from deepx import backend as T
 from argparse import ArgumentParser
 
 logger = logging.getLogger()
@@ -42,80 +44,58 @@ if __name__ == "__main__":
 
     logging.debug('Compiling discriminator...')
     discriminator = Sequence(Vector(len(text_encoding_D))) >> (Repeat(LSTM(1024), 2) >> Softmax(2))
-    
+
     logging.debug('Compiling generator...')
     generator = Generate(Vector(len(text_encoding_G)) >> Repeat(LSTM(1024), 2) >> Softmax(len(text_encoding_G)), args.sequence_length)
-    
+
     logging.debug('Compiling human-readable generator...')
-    generator2 = Sequence(Vector(len(text_encoding_G), batch_size=1)) >> Repeat(LSTM(1024, stateful=True), 2) >> Softmax(len(text_encoding_G))
+    gennet = Sequence(Vector(len(text_encoding_G))) >> Repeat(LSTM(1024), 2) >> Softmax(len(text_encoding_G))
+    generator = generator.tie(gennet)
+
+    assert gennet.get_parameters() == generator.get_parameters()
 
     logging.debug('Compiling GAN...')
-    gan = generator >> discriminator.right
+    gan = gennet >> discriminator.right
 
     # Optimization for the generator (G)
-    # gan.right.frozen = True
-    # assert gan.get_parameters() == gan.left.get_parameters()
-    rmsprop_G = RMSProp(gan.left >> Freeze(gan.right), ConvexSequentialLoss(CrossEntropy(), 0.5))
+    rmsprop_G = RMSProp(gan.left >> Freeze(gan.right), CrossEntropy())
 
     # Optimization for the discrimator (D)
     # gan.right.frozen = False
     # assert len(discriminator.get_parameters()) > 0
-    rmsprop_D = RMSProp(discriminator, CrossEntropy(), clip_gradients=5)
+    rmsprop_D = RMSProp(discriminator, CrossEntropy())
 
 
     ##########
-    # Stage I 
+    # Stage I
     ##########
     # Load parameters after chaining operations due to known issue in DeepX
-    with open('models/generative/generative-model-0.1.renamed.pkl', 'rb') as fp:
-        generator.set_state(pickle.load(fp))
+    # with open('models/generative/generative-model-0.1.renamed.pkl', 'rb') as fp:
+        # generator.set_state(pickle.load(fp))
 
-    with open('models/generative/generative-model-0.1.renamed.pkl', 'rb') as fp:
-        generator2.set_state(pickle.load(fp))
+    # with open('models/generative/generative-model-0.1.renamed.pkl', 'rb') as fp:
+        # generator3.set_state(pickle.load(fp))
 
-    with open('models/discriminative/discriminative-model-0.0.renamed.pkl', 'rb') as fp:
-        state = pickle.load(fp)
-        state = (state[0][0], (state[0][1], state[1]))
-        discriminator.set_state(state)
-    
+    # with open('models/discriminative/discriminative-model-0.0.renamed.pkl', 'rb') as fp:
+        # state = pickle.load(fp)
+        # state = (state[0][0], (state[0][1], state[1]))
+        # discriminator.set_state(state)
+
     # with open('models/gan/   ', 'rb') as fp:
     #     gan.set_state(pickle.load(fp))
 
 
-    def generate_sample():
+    def generate_sample(num_reviews):
         '''Generate a sample from the current version of the generator'''
-        pred_seq = generator.predict(np.eye(100)[None,0])
-        num_seq  = NumberSequence(pred_seq.argmax(axis=2).ravel()).decode(text_encoding_G)
-        return_str = ''.join(num_seq.seq)
-        return_str = return_str.replace('<STR>', '').replace('<EOS>', '')
-        return return_str
+        pred_seq = generator.predict(np.tile(np.eye(100)[0], (num_reviews, 1)))
+        return pred_seq
 
-
-    def generate_sample_2(length):
-        '''Generate a sample from the current version of the generator'''
-        characters = [np.array([0])]
-        generator2.reset_states()
-        for i in xrange(length):
-            output = generator2.predict(np.eye(len(text_encoding_G))[None, characters[-1]])
-            sample = np.random.choice(xrange(len(text_encoding_G)), p=output[0, 0])
-            characters.append(np.array([sample]))
-        characters =  np.array(characters).ravel()
-        return ''.join([text_encoding_G.decode(c) for c in characters[1:]])
-
-
-    def generate_fake_reviews(num_reviews, len_reviews):
+    def generate_fake_reviews(num_reviews):
         '''Generate fake reviews using the current generator'''
-        fake_reviews = []
-        
-        for _ in xrange(num_reviews):
-            review = generate_sample_2(len_reviews)
-            fake_reviews.append(review)
-        
-        fake_reviews = [r.replace('\x05',  '') for r in fake_reviews]
-        fake_reviews = [r.replace('<STR>', '') for r in fake_reviews]
-        fake_reviews = [r.replace('<EOS>', '') for r in fake_reviews]
-        return fake_reviews
-
+        pred_seq = generate_sample(num_reviews).argmax(axis=2).T
+        num_seq  = [NumberSequence(pred_seq[i]).decode(text_encoding_G) for i in xrange(num_reviews)]
+        return_str = [''.join(n.seq).replace('<STR>', '').replace('<EOS>', '').replace('\x05', '') for n in num_seq]
+        return return_str
 
     def predict(text):
         '''Return prediction array at each time-step of input text'''
@@ -137,37 +117,37 @@ if __name__ == "__main__":
 
 
     ###########
-    # Stage II 
+    # Stage II
     ###########
 
     def train_generator(iterations, step_size, stop_criteria=0.001):
-        '''Train the generative model (G) via a GAN framework'''  
-        
+        '''Train the generative model (G) via a GAN framework'''
+
         avg_loss = []
         with open(args.log, 'a+') as fp:
             for i in xrange(iterations):
-                index = text_encoding_G.encode('<STR>')
-                batch = np.tile(text_encoding_G.convert_representation([index]), (args.batch_size, 1))
+                batch = generate_sample(args.batch_size)
                 y = np.tile([0, 1], (args.sequence_length, args.batch_size, 1))
                 loss = rmsprop_G.train(batch, y, step_size)
+
                 if i == 0:
                     avg_loss.append(loss)
                 avg_loss.append(loss * 0.05 + avg_loss[-1] * 0.95)
-                
+
                 print >> fp,  "Generator Loss[%u]: %f (%f)" % (i, loss, avg_loss[-1])
                 print "Generator Loss[%u]: %f (%f)" % (i, loss, avg_loss[-1])
                 fp.flush()
-                
+
                 # if i > 10:
                 #     avg_loss_delta = avg_loss[-2]/avg_loss[-1] - 1
                 #     if avg_loss_delta < stop_criteria:
-                #         return 
-        
-        
+                #         return
+
+
     def train_discriminator(iterations, step_size, real_reviews, fake_reviews, stop_criteria=0.001):
         '''Train the discriminator (D) on real and fake reviews'''
         random.seed(1)
-        
+
         # Load and shuffle reviews
         real_targets, fake_targets = [],  []
         for _ in xrange(len(real_reviews)):
@@ -177,8 +157,8 @@ if __name__ == "__main__":
 
         all_reviews = zip(real_reviews, real_targets) + zip(fake_reviews, fake_targets)
         random.shuffle(all_reviews)
-        
-        reviews, targets = zip(*all_reviews) 
+
+        reviews, targets = zip(*all_reviews)
 
         logging.debug("Converting to one-hot...")
         review_sequences = [CharacterSequence.from_string(review) for review in reviews]
@@ -188,8 +168,8 @@ if __name__ == "__main__":
         final_target = NumberSequence(np.concatenate([c.seq.astype(np.int32) for c in target_sequences]))
 
         # Construct the batcher
-        batcher = WindowedBatcher([final_seq], [text_encoding_D], final_target, sequence_length=200, batch_size=100)
-        
+        batcher = WindowedBatcher([final_seq], [text_encoding_D], final_target, sequence_length=200, batch_size=10)
+
         avg_loss = []
         with open(args.log, 'a+') as fp:
             for i in xrange(iterations):
@@ -202,42 +182,40 @@ if __name__ == "__main__":
                 print >> fp,  "Discriminator Loss[%u]: %f (%f)" % (i, loss, avg_loss[-1])
                 print "Discriminator Loss[%u]: %f (%f)" % (i, loss, avg_loss[-1])
                 fp.flush()
-                
+
                 # if i > 10:
                 #     avg_loss_delta = avg_loss[-2]/avg_loss[-1] - 1
                 #     if avg_loss_delta < stop_criteria:
-                #         return 
+                #         return
 
 
     def alternating_gan(num_epoch, dis_iter, gen_iter, dis_lr=1, gen_lr=1, num_reviews = 25, seq_length=args.sequence_length):
-        '''Alternating GAN procedure for jointly training the generator (G) 
+        '''Alternating GAN procedure for jointly training the generator (G)
         and the discriminator (D)'''
 
         logging.debug('Loading real reviews...')
         with open('data/real_beer_reviews.txt', 'r') as f:
             real_reviews_all = [r[3:] for r in f.read().strip().split('\n')]
-            real_reviews_all = [r.replace('\x05',  '') for r in real_reviews_all] 
+            real_reviews_all = [r.replace('\x05',  '') for r in real_reviews_all]
             real_reviews_all = [r.replace('<STR>', '') for r in real_reviews_all]
-        
+
         logging.debug('Generating fake reviews...')
-        fake_reviews = generate_fake_reviews(num_reviews, seq_length) 
+        fake_reviews = generate_fake_reviews(num_reviews)
 
         with open(args.log, 'w') as fp:
             print >> fp, 'Alternating GAN for ',num_epoch,' epochs.'
 
         for i in xrange(num_epoch):
             logging.debug('Training discriminator...')
-            last_review  = np.random.randint(num_reviews, len(real_reviews_all)) 
-            real_reviews = real_reviews_all[last_review-num_reviews : last_review] 
+            last_review  = np.random.randint(num_reviews, len(real_reviews_all))
+            real_reviews = real_reviews_all[last_review-num_reviews : last_review]
             train_discriminator(dis_iter, dis_lr, real_reviews, fake_reviews)
 
             logging.debug('Training generator...')
-            train_generator(gen_iter, gen_lr) 
-            
-            logging.debug('Generating new fake reviews...')
-            generator2.set_state(generator.get_state())
+            train_generator(gen_iter, gen_lr)
 
-            fake_reviews = generate_fake_reviews(num_reviews, seq_length) 
+            logging.debug('Generating new fake reviews...')
+            fake_reviews = generate_fake_reviews(num_reviews)
 
             # fake_labels = []
             # for _ in xrange(len(fake_reviews)):
