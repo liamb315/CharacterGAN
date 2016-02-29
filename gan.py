@@ -70,20 +70,27 @@ if __name__ == "__main__":
     # Stage I
     ##########
     # Load parameters after chaining operations due to known issue in DeepX
-    # with open('models/generative/generative-model-0.1.renamed.pkl', 'rb') as fp:
-        # generator.set_state(pickle.load(fp))
+    with open('models/generative/generative-model-0.1.renamed.pkl', 'rb') as fp:
+        generator.set_state(pickle.load(fp))
 
     # with open('models/generative/generative-model-0.1.renamed.pkl', 'rb') as fp:
         # generator3.set_state(pickle.load(fp))
 
-    # with open('models/discriminative/discriminative-model-0.0.renamed.pkl', 'rb') as fp:
-        # state = pickle.load(fp)
-        # state = (state[0][0], (state[0][1], state[1]))
-        # discriminator.set_state(state)
+    with open('models/discriminative/discriminative-model-0.0.renamed.pkl', 'rb') as fp:
+        state = pickle.load(fp)
+        state = (state[0][0], (state[0][1], state[1]))
+        discriminator.set_state(state)
 
     # with open('models/gan/   ', 'rb') as fp:
     #     gan.set_state(pickle.load(fp))
 
+    def load_reviews(file_dir):
+        '''Loads list of reviews from file_dir'''
+        with open(file_dir, 'rb') as f:
+            reviews = [r[3:] for r in f.read().strip().split('\n')]
+            reviews = [r.replace('\x05',  '') for r in reviews]
+            reviews = [r.replace('<STR>', '') for r in reviews]
+        return reviews
 
     def generate_sample(num_reviews):
         '''Generate a sample from the current version of the generator'''
@@ -192,11 +199,7 @@ if __name__ == "__main__":
         and the discriminator (D)'''
 
         logging.debug('Loading real reviews...')
-        with open('data/real_beer_reviews.txt', 'r') as f:
-            real_reviews_all = [r[3:] for r in f.read().strip().split('\n')]
-            real_reviews_all = [r.replace('\x05',  '') for r in real_reviews_all]
-            real_reviews_all = [r.replace('<STR>', '') for r in real_reviews_all]
-            real_reviews_all = [r for r in real_reviews_all if len(r) > args.sequence_length]
+        real_reviews_all = load_reviews('data/real_beer_reviews.txt')
 
         logging.debug('Generating fake reviews...')
 
@@ -237,6 +240,4 @@ if __name__ == "__main__":
 
             # with open('models/discriminative/discriminative-model-epoch-'+str(i)+'.pkl', 'wb') as f:
                 # pickle.dump(discriminator.get_state(), f)
-
-
 
