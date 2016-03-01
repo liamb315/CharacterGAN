@@ -100,7 +100,7 @@ if __name__ == "__main__":
 
     def generate_fake_reviews(num_reviews):
         '''Generate fake reviews using the current generator'''
-        pred_seq = generate_sample(num_reviews).argmax(axis=3).T
+        pred_seq = generate_sample(num_reviews).argmax(axis=2).T
         num_seq  = [NumberSequence(pred_seq[i]).decode(text_encoding_D) for i in xrange(num_reviews)]
         return_str = [''.join(n.seq) for n in num_seq]
         return return_str
