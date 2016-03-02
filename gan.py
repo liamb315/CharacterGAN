@@ -232,9 +232,9 @@ if __name__ == "__main__":
                     print review
                     print >> f, review
 
-            # logging.debug('Saving models...')
-            # with open('models/gan/gan-model-epoch'+str(i)+'.pkl', 'wb') as f:
-                # pickle.dump(gan.get_state(), f)
+            logging.debug('Saving models...')
+            with open('models/gan/gan-model-epoch'+str(i)+'.pkl', 'wb') as f:
+                pickle.dump(gan.get_state(), f)
 
             # with open('models/generative/generative-model-epoch-'+str(i)+'.pkl', 'wb') as f:
                 # pickle.dump(generator.get_state(), f)

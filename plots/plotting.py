@@ -1,33 +1,34 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import re
+from argparse import ArgumentParser
 
-prob_real = [ 0.48244482,  0.55095959,  0.52691811,  0.46539649,  0.54629701,
-        0.44057757,  0.50457233,  0.55249435,  0.54365945,  0.59343231,
-        0.63751566,  0.61706281,  0.57126093,  0.54633182,  0.54618424,
-        0.59545565,  0.63357568,  0.50703204,  0.45097935,  0.5950861 ,
-        0.47751606,  0.44298518,  0.45161036,  0.46920186,  0.34492329,
-        0.34974006,  0.37463638,  0.34736207,  0.29541713,  0.27723438,
-        0.25812888,  0.38919595,  0.40046456,  0.4479028 ,  0.45425814,
-        0.45914492,  0.49607787,  0.51378959,  0.34309965,  0.4399012 ,
-        0.37061656,  0.37004295,  0.46158138,  0.41090196,  0.50266927,
-        0.58034331,  0.48810869,  0.50870013,  0.54599464,  0.59595799,
-        0.59932989,  0.62594265,  0.63176477,  0.62013721,  0.69026601,
-        0.65254217,  0.71767497,  0.65925986,  0.83910078,  0.77645278,
-        0.72166872,  0.66552824,  0.67163175,  0.67059249,  0.60397708,
-        0.58198118,  0.48327571,  0.42854765,  0.37019464,  0.51437712,
-        0.4700782 ,  0.38272515,  0.25974715,  0.26118603,  0.32703564,
-        0.28044483,  0.18963902,  0.16446504,  0.17645623,  0.21868174,
-        0.11501299,  0.12483963,  0.14229466,  0.15326238,  0.10754563,
-        0.07968365,  0.05695664,  0.08347298,  0.21797055,  0.144355  ,
-        0.20404248,  0.19641981,  0.1380941 ,  0.13356601,  0.16119902,
-        0.2183418 ,  0.15805136,  0.10388514,  0.09837776,  0.08792185]
+def parse_args():
+    argparser = ArgumentParser()
+    argparser.add_argument('--log_file', default='gan_log_current.txt',
+        help='The training loss log file for the GAN training')
+    return argparser.parse_args()
 
-review = 'Another great brew from the winter seasonal mix pack, and my favorite beer from the Southern Tier. T'
 
-x = np.arange(100)
-ticks = list(review)
-plt.xticks(x, ticks)
-plt.plot(x, prob_real)
-plt.title('Predicted Probability of Real Over the Sequence Length')
-plt.show()
+
+if __name__=='__main__':
+    args = parse_args()
+
+    with open(args.log_file, 'r') as f:
+        next(f)
+        train_loss = []
+        labels     = []
+        for i, line in enumerate(f):
+            train_loss.append(float(re.search('\((.*?)\)', line).group(1)))
+            if i % 50 == 0:
+                labels.append(re.search('^\w+', line).group())
+            else:
+                labels.append('')
+
+
+    plt.plot(train_loss)
+    plt.xticks(np.arange(len(labels)), labels, rotation=45)
+    plt.title('GAN Adversarial Training Loss')
+    plt.show()
+
 
