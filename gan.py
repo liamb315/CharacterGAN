@@ -116,6 +116,9 @@ if __name__ == "__main__":
     def classification_accuracy(reviews, labels):
         '''Classification accuracy based on prediction at final time-step'''
         correct = 0.0
+        reviews = [r.replace('<STR>', '') for r in reviews]
+        reviews = [r.replace('<EOS>', '') for r in reviews]
+
         for review, label in zip(reviews, labels):
             pred   = predict(review)[-1][0]
             print pred, label, pred.argmax() == label.argmax()
@@ -132,7 +135,6 @@ if __name__ == "__main__":
         '''Train the generative model (G) via a GAN framework'''
 
         avg_loss = []
-        # rmsprop_G.reset_parameters()
         with open(args.log, 'a+') as fp:
             for i in xrange(iterations):
                 batch = generate_sample(args.batch_size)
@@ -150,10 +152,6 @@ if __name__ == "__main__":
                 print "Generator Loss[%u]: %f (%f)" % (i, loss, avg_loss[-1])
                 fp.flush()
 
-                # if i > 10:
-                #     avg_loss_delta = avg_loss[-2]/avg_loss[-1] - 1
-                #     if avg_loss_delta < stop_criteria:
-                #         return
 
     def train_discriminator(iterations, step_size, real_reviews, stop_criteria=0.001):
         '''Train the discriminator (D) on real and fake reviews'''
@@ -195,12 +193,34 @@ if __name__ == "__main__":
                 print "Discriminator Loss[%u]: %f (%f)" % (i, loss, avg_loss[-1])
                 fp.flush()
 
-    def alternating_gan(num_epoch, dis_iter, gen_iter, dis_lr=1, gen_lr=1, num_reviews = 100, seq_length=args.sequence_length):
+
+    def monitor_gan(real_reviews_test, num_reviews = 10):
+        '''Monitoring function for GAN training.  return_str
+
+            1.  real:  Avg. log-likelihood attributed to real_reviews
+            2.  fake:  Avg. log-likelihood attributed to fake_reviews
+        '''
+        logging.debug('Monitor performance...')
+
+        last_review = np.random.randint(num_reviews, len(real_reviews_test))
+        real_reviews = real_reviews_test[last_review : last_review + num_reviews]
+        real_labels  = np.asarray([[0,1] for _ in xrange(len(real_reviews))])
+        fake_reviews = generate_fake_reviews(num_reviews)
+        fake_labels  = np.asarray([[1,0] for _ in xrange(len(fake_reviews))])
+
+        real = classification_accuracy(real_reviews, real_labels)
+        fake = classification_accuracy(fake_reviews, fake_labels)
+
+        return real, fake
+
+    def alternating_gan(num_epoch, dis_iter, gen_iter, dis_lr=1, gen_lr=1, num_reviews = 100, seq_length=args.sequence_length, monitor=True):
         '''Alternating GAN procedure for jointly training the generator (G)
         and the discriminator (D)'''
 
         logging.debug('Loading real reviews...')
         real_reviews_all = load_reviews('data/real_beer_reviews.txt')
+        real_reviews_train = real_reviews_all[:100000]
+        real_reviews_test  = real_reviews_all[100000:]
 
         logging.debug('Generating fake reviews...')
 
@@ -210,9 +230,14 @@ if __name__ == "__main__":
             print >> fp, 'Alternating GAN for ',num_epoch,' epochs.'
 
         for i in xrange(num_epoch):
+            if monitor:
+                r, f = monitor_gan(real_reviews_test)
+                print r, f
+
+
             logging.debug('Training discriminator...')
-            last_review  = np.random.randint(num_reviews, len(real_reviews_all))
-            real_reviews = real_reviews_all[last_review : last_review + num_reviews]
+            last_review  = np.random.randint(num_reviews, len(real_reviews_train))
+            real_reviews = real_reviews_train[last_review : last_review + num_reviews]
             train_discriminator(dis_iter, dis_lr, real_reviews)
 
             logging.debug('Training generator...')
@@ -221,12 +246,7 @@ if __name__ == "__main__":
             logging.debug('Generating new fake reviews...')
             fake_reviews = generate_fake_reviews(num_reviews)
 
-            # fake_labels = []
-            # for _ in xrange(len(fake_reviews)):
-            #     fake_labels.append([1,0])
-            # fake_labels = np.asarray(fake_labels)
-            # print classification_accuracy(fake_reviews, fake_labels)
-
+            
             with open('data/gan/gan_reviews_'+str(i)+'.txt', 'wb') as f:
                 for review in fake_reviews[:10]:
                     print review
