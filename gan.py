@@ -73,9 +73,6 @@ if __name__ == "__main__":
     with open('models/generative/generative-model-0.1.renamed.pkl', 'rb') as fp:
         generator.set_state(pickle.load(fp))
 
-    # with open('models/generative/generative-model-0.1.renamed.pkl', 'rb') as fp:
-        # generator3.set_state(pickle.load(fp))
-
     with open('models/discriminative/discriminative-model-0.0.renamed.pkl', 'rb') as fp:
         state = pickle.load(fp)
         state = (state[0][0], (state[0][1], state[1]))
@@ -213,7 +210,7 @@ if __name__ == "__main__":
 
         return real, fake
 
-    def alternating_gan(num_epoch, dis_iter, gen_iter, dis_lr=1, gen_lr=1, num_reviews = 100, seq_length=args.sequence_length, monitor=True):
+    def alternating_gan(num_epoch, dis_iter, gen_iter, dis_lr=1, gen_lr=1, num_reviews = 1000, seq_length=args.sequence_length, monitor=True):
         '''Alternating GAN procedure for jointly training the generator (G)
         and the discriminator (D)'''
 
