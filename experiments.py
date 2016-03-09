@@ -60,10 +60,15 @@ def noise_test(num_reviews, fractional_noise = 0.2, distribution='uniform'):
 
 		if distribution is 'constant':
 			noise = fractional_noise * np.ones(shape)
+			blurred = num_seq + noise	
 		elif distribution is 'uniform':
 			noise = np.random.uniform(0.0, fractional_noise, shape)
+			blurred = num_seq + noise
+		elif distribution is 'dirichlet':
+			blurred = [np.random.dirichlet(num_seq[j,0,:] + fractional_noise) for j in xrange(len(num_seq))]
+			blurred = np.asarray(blurred)
+			blurred = blurred.reshape(shape)
 
-		blurred = num_seq + noise		
 
 		print '  Perturbed:   ', discriminator.predict(blurred)[-1], '\n'
 
