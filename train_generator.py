@@ -124,11 +124,11 @@ if __name__ == '__main__':
 	generator = Sequence(Vector(len(text_encoding), batch_size=100)) >> Repeat(LSTM(1024, stateful=True), 2) >> Softmax(len(text_encoding))
 	generator2 = Sequence(Vector(len(text_encoding), batch_size=1)) >> Repeat(LSTM(1024, stateful=True), 2) >> Softmax(len(text_encoding))
 
-	logging.debug('Loading prior model...')
-	with open('models/generative/generative-model-0.0.renamed.pkl', 'rb') as fp:
-		generator.set_state(pickle.load(fp))
-	with open('models/generative/generative-model-0.0.renamed.pkl', 'rb') as fp:
-		generator2.set_state(pickle.load(fp))
+	# logging.debug('Loading prior model...')
+	# with open('models/generative/generative-model-0.0.renamed.pkl', 'rb') as fp:
+	# 	generator.set_state(pickle.load(fp))
+	# with open('models/generative/generative-model-0.0.renamed.pkl', 'rb') as fp:
+	# 	generator2.set_state(pickle.load(fp))
 	
 	# Optimization procedure
 	rmsprop = RMSProp(generator, CrossEntropy())
@@ -142,7 +142,7 @@ if __name__ == '__main__':
 				print 'Loss[%u]: %f' % (_, loss)
 				f.flush()
 
-		with open('models/generative/generative-model-current.pkl', 'wb') as g:
-			pickle.dump(generator.get_state(), g)
+		# with open('models/generative/generative-model-current.pkl', 'wb') as g:
+		# 	pickle.dump(generator.get_state(), g)
 
 		generator2.set_state(generator.get_state())

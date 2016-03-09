@@ -21,9 +21,6 @@ logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 
 
-###############
-# Experiment 1
-###############
 
 def predict(text):
     '''Return prediction array at each time-step of input text'''
@@ -43,6 +40,9 @@ def text_to_num(text):
 	return X
 
 
+###############
+# Experiment 1
+###############
 def noise_test(num_reviews, fractional_noise = 0.2, distribution='uniform'):
 	'''Test performance of the discriminator with noise added to one-hot vectors'''
 
@@ -69,9 +69,7 @@ def noise_test(num_reviews, fractional_noise = 0.2, distribution='uniform'):
 			blurred = np.asarray(blurred)
 			blurred = blurred.reshape(shape)
 
-
 		print '  Perturbed:   ', discriminator.predict(blurred)[-1], '\n'
-
 
 
 
