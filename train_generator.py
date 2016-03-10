@@ -13,7 +13,8 @@ from deepx.optimize import *
 from argparse import ArgumentParser
 theano.config.on_unused_input = 'ignore'
 
-logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger()
+logger.setLevel(logging.DEBUG)
 
 
 def parse_args():
@@ -94,10 +95,31 @@ def generate_number_samples(num_reviews):
 
 def generate_text_samples(num_reviews):
 	'''Generate fake reviews using the current generator'''
-	pred_seq = generate_samples(num_reviews).argmax(axis=2).T
+	pred_seq = generate_number_samples(num_reviews).argmax(axis=2).T
 	num_seq  = [NumberSequence(pred_seq[i]).decode(text_encoding) for i in xrange(num_reviews)]
 	return_str = [''.join(n.seq) for n in num_seq]
 	return return_str
+
+
+def generate_training_set(gan_versions=150, reviews_per_gan=1000, train_iter=100, step_size=1):
+	'''Generate a reviews classically
+	
+	Note:  Reviews may contain non-unicode characters
+	'''
+
+	with open('data/fake_beer_reviews_mixed_versions.txt', 'wb') as f:
+		for i in xrange(gan_versions):	
+			logging.debug('Generating reviews...')		
+			reviews = generate_text_samples(reviews_per_gan)
+			
+			logging.debug('Appending reviews to file...')
+			for review in reviews:
+				print >> f, review
+
+			logging.debug('Training generator...')
+			train_generator(train_iter, step_size)
+
+
 
 
 if __name__ == '__main__':
@@ -128,8 +150,8 @@ if __name__ == '__main__':
 	generator_sample = generator_sample.tie(generator)
 
 	# logging.debug('Loading prior model...')
-	with open('models/generative/generative-model-current.pkl', 'rb') as fp:
-		generator.set_state(pickle.load(fp))
+	# with open('models/generative/generative-model-current.pkl', 'rb') as fp:
+	# 	generator.set_state(pickle.load(fp))
 	
 	logging.debug('Compiling graph...')
 	rmsprop = RMSProp(generator, CrossEntropy())
