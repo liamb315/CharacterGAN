@@ -80,24 +80,24 @@ class WindowedBatcher(object):
 		X = y[:, :-1, :]
 		y = y[:, 1:, :self.vocab_sizes[0]]
 
-
 		X = np.swapaxes(X, 0, 1)
 		y = np.swapaxes(y, 0, 1)
-		# self.batch_cache[self.batch_index] = X, y
 		self.batch_index += 1
 		return X, y
 
-def generate_sample(length):
-	'''Generate a sample from the current version of the generator'''
-	characters = [np.array([0])]
-	generator2.reset_states()
-	for i in xrange(length):
-		output = generator2.predict(np.eye(len(text_encoding))[None, characters[-1]])
-		sample = np.random.choice(xrange(len(text_encoding)), p=output[0, 0])
-		characters.append(np.array([sample]))
-	characters =  np.array(characters).ravel()
-	num_seq  = NumberSequence(characters[1:])
-	return num_seq.decode(text_encoding)
+
+def generate_number_samples(num_reviews):
+	'''Generate a batch of samples from the current version of the generator'''
+	pred_seq = generator_sample.predict(np.tile(np.eye(100)[0], (num_reviews, 1)))
+	return pred_seq
+
+
+def generate_text_samples(num_reviews):
+	'''Generate fake reviews using the current generator'''
+	pred_seq = generate_samples(num_reviews).argmax(axis=2).T
+	num_seq  = [NumberSequence(pred_seq[i]).decode(text_encoding) for i in xrange(num_reviews)]
+	return_str = [''.join(n.seq) for n in num_seq]
+	return return_str
 
 
 if __name__ == '__main__':
@@ -119,18 +119,19 @@ if __name__ == '__main__':
 	num_sequences    = [c.encode(text_encoding) for c in review_sequences]
 	final_sequences  = NumberSequence(np.concatenate([c.seq.astype(np.int32) for c in num_sequences]))
 
-	# Construct the batcher
-	batcher = WindowedBatcher([final_sequences], [text_encoding], sequence_length=200, batch_size=100)
-	generator = Sequence(Vector(len(text_encoding), batch_size=100)) >> Repeat(LSTM(1024, stateful=True), 2) >> Softmax(len(text_encoding))
-	generator2 = Sequence(Vector(len(text_encoding), batch_size=1)) >> Repeat(LSTM(1024, stateful=True), 2) >> Softmax(len(text_encoding))
+	# Batcher and generator
+	batcher          = WindowedBatcher([final_sequences], [text_encoding], sequence_length=200, batch_size=100)
+	generator        = Sequence(Vector(len(text_encoding), batch_size=100)) >> Repeat(LSTM(1024, stateful=True), 2) >> Softmax(len(text_encoding))
+	generator_sample = Generate(Vector(len(text_encoding)) >> Repeat(LSTM(1024), 2) >> Softmax(len(text_encoding)), 500)
+	
+	# Tie the weights
+	generator_sample = generator_sample.tie(generator)
 
 	# logging.debug('Loading prior model...')
-	# with open('models/generative/generative-model-0.0.renamed.pkl', 'rb') as fp:
-	# 	generator.set_state(pickle.load(fp))
-	# with open('models/generative/generative-model-0.0.renamed.pkl', 'rb') as fp:
-	# 	generator2.set_state(pickle.load(fp))
+	with open('models/generative/generative-model-current.pkl', 'rb') as fp:
+		generator.set_state(pickle.load(fp))
 	
-	# Optimization procedure
+	logging.debug('Compiling graph...')
 	rmsprop = RMSProp(generator, CrossEntropy())
 
 	def train_generator(iterations, step_size):
@@ -142,7 +143,6 @@ if __name__ == '__main__':
 				print 'Loss[%u]: %f' % (_, loss)
 				f.flush()
 
-		# with open('models/generative/generative-model-current.pkl', 'wb') as g:
-		# 	pickle.dump(generator.get_state(), g)
+		with open('models/generative/generative-model-current.pkl', 'wb') as g:
+			pickle.dump(generator.get_state(), g)
 
-		generator2.set_state(generator.get_state())
