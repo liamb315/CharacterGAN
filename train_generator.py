@@ -103,7 +103,7 @@ def generate_text_samples(num_reviews):
 
 def generate_training_set(gan_versions=150, reviews_per_gan=1000, train_iter=100, step_size=1):
 	'''Generate a reviews classically
-	
+
 	Note:  Reviews may contain non-unicode characters
 	'''
 
@@ -118,8 +118,6 @@ def generate_training_set(gan_versions=150, reviews_per_gan=1000, train_iter=100
 
 			logging.debug('Training generator...')
 			train_generator(train_iter, step_size)
-
-
 
 
 if __name__ == '__main__':
@@ -154,12 +152,16 @@ if __name__ == '__main__':
 	# 	generator.set_state(pickle.load(fp))
 	
 	logging.debug('Compiling graph...')
-	rmsprop = RMSProp(generator, CrossEntropy())
+	rmsprop = RMSProp(generator, CrossEntropy(), clip_gradients=500)
 
 	def train_generator(iterations, step_size):
 		with open(args.log, 'w') as f:
 			for _ in xrange(iterations):
 				X, y = batcher.next_batch()
+				grads = rmsprop.gradient(X, y)
+				if grads:
+					for g in grads:
+						print np.linalg.norm(np.asarray(g))
 				loss = rmsprop.train(X, y, step_size)
 				print >> f, 'Loss[%u]: %f' % (_, loss)
 				print 'Loss[%u]: %f' % (_, loss)

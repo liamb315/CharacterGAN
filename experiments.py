@@ -43,10 +43,14 @@ def text_to_num(text):
 ###############
 # Experiment 1
 ###############
-def noise_test(num_reviews, fractional_noise = 0.2, distribution='uniform'):
+def noise_test(num_reviews, data_dir = 'data/fake_beer_reviews.txt', fractional_noise = 0.2, distribution='uniform'):
 	'''Test performance of the discriminator with noise added to one-hot vectors'''
 
-	reviews     = load_reviews('data/fake_beer_reviews.txt')[:num_reviews]
+
+	# reviews     = load_reviews('data/fake_beer_reviews_0.0_150000.txt')[-500:][:num_reviews]
+	reviews     = load_reviews('data/fake_beer_reviews.txt')[-500:][:num_reviews]
+	reviews     = [r.replace('<','').replace('>','') for r in reviews]
+
 	# reviews_seq = [text_to_num(r) for r in reviews]
 	# shape       = reviews.shape
 

@@ -21,7 +21,7 @@ def parse_args():
     argparser = ArgumentParser()
     argparser.add_argument("real_file")
     argparser.add_argument("fake_file")
-    argparser.add_argument("--log", default="loss/current_loss.txt")
+    argparser.add_argument("--log", default="loss/discriminator_loss_current.txt")
     return argparser.parse_args()
 
 
@@ -33,19 +33,19 @@ def generate(length, temperature):
     return NumberSequence(results).decode(encoding)
 
 
-def create_data_batcher(reviews, targets, encoding, sequence_length=200, batch_size=100):
-    '''Create a batcher for a set of reviews and targets given a text encoding'''
-    logging.debug('Converting to one-hot...')
-    review_seq   = [CharacterSequence.from_string(review) for review in reviews]
+# def create_data_batcher(reviews, targets, encoding, sequence_length=200, batch_size=100):
+#     '''Create a batcher for a set of reviews and targets given a text encoding'''
+#     logging.debug('Converting to one-hot...')
+#     review_seq   = [CharacterSequence.from_string(review.replace('<STR>', '\x00').replace('<EOS>', '\x01')) for review in reviews]
     
-    num_seq      = [c.encode(encoding) for c in review_seq]
-    target_seq   = [NumberSequence([target]).replicate(len(r)) for target, r in zip(targets, num_seq)]
+#     num_seq      = [c.encode(encoding) for c in review_seq]
+#     target_seq   = [NumberSequence([target]).replicate(len(r)) for target, r in zip(targets, num_seq)]
 
-    final_seq    = NumberSequence(np.concatenate([c.seq.astype(np.int32) for c in num_seq]))
-    final_target = NumberSequence(np.concatenate([c.seq.astype(np.int32) for c in target_seq]))
+#     final_seq    = NumberSequence(np.concatenate([c.seq.astype(np.int32) for c in num_seq]))
+#     final_target = NumberSequence(np.concatenate([c.seq.astype(np.int32) for c in target_seq]))
 
-    batcher = WindowedBatcher([final_seq], [encoding], final_target, sequence_length, batch_size)
-    return batcher
+#     batcher = WindowedBatcher([final_seq], [encoding], final_target, sequence_length, batch_size)
+#     return batcher
  
 
 if __name__ == "__main__":
@@ -83,7 +83,7 @@ if __name__ == "__main__":
     text_encoding.include_start_token = False
 
     logging.debug("Converting to one-hot...")
-    review_sequences = [CharacterSequence.from_string(review) for review in reviews]
+    review_sequences = [CharacterSequence.from_string(review.replace('<STR>', '\x00').replace('<EOS>', '\x01').replace('>', '').replace('<', '')) for review in reviews]
     
     num_sequences = [c.encode(text_encoding) for c in review_sequences]
     target_sequences = [NumberSequence([target]).replicate(len(r)) for target, r in zip(targets, num_sequences)]
@@ -98,7 +98,7 @@ if __name__ == "__main__":
 
     logging.debug("Compiling discriminator...")
     discriminator = Sequence(Vector(len(text_encoding), batch_size=100)) >> Repeat(LSTM(1024, stateful=True), 2) >> Softmax(2)
-    with open('models/discriminative-model-0.0.pkl', 'rb') as fp:
+    with open('models/discriminative/discriminative-model-0.0.renamed.pkl', 'rb') as fp:
         discriminator.set_state(pickle.load(fp))
     
     # Optimization procedure

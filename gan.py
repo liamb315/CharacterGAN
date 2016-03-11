@@ -74,6 +74,7 @@ if __name__ == "__main__":
         generator.set_state(pickle.load(fp))
 
     with open('models/discriminative/discriminative-model-0.0.renamed.pkl', 'rb') as fp:
+    # with open('models/discriminative/discriminative-model-1.0.pkl', 'rb') as fp:
         state = pickle.load(fp)
         state = (state[0][0], (state[0][1], state[1]))
         discriminator.set_state(state)
