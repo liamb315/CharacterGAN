@@ -30,6 +30,42 @@ def parse_args():
     argparser.add_argument('--log', default='loss/gan_log_current.txt')
     return argparser.parse_args()
 
+def generate_sample(num_reviews):
+    '''Generate a sample from the current version of the generator'''
+    pred_seq = generator.predict(np.tile(np.eye(100)[0], (num_reviews, 1)))
+    return pred_seq
+
+def generate_fake_reviews(num_reviews):
+    '''Generate fake reviews using the current generator'''
+    pred_seq = generate_sample(num_reviews).argmax(axis=2).T
+    num_seq  = [NumberSequence(pred_seq[i]).decode(text_encoding_D) for i in xrange(num_reviews)]
+    return_str = [''.join(n.seq) for n in num_seq]
+    return return_str
+
+def predict(text):
+    '''Return prediction array at each time-step of input text'''
+    char_seq   = CharacterSequence.from_string(text)
+    num_seq    = char_seq.encode(text_encoding_D)
+    num_seq_np = num_seq.seq.astype(np.int32)
+    X          = np.eye(len(text_encoding_D))[num_seq_np]
+    return discriminator.predict(X)
+
+def classification_accuracy(reviews, labels):
+    '''Classification accuracy based on prediction at final time-step'''
+    correct = 0.0
+    reviews = [r.replace('<STR>', '') for r in reviews]
+    reviews = [r.replace('<EOS>', '') for r in reviews]
+
+    for review, label in zip(reviews, labels):
+        pred   = predict(review)[-1][0]
+        print pred, label, pred.argmax() == label.argmax()
+        if pred.argmax() == label.argmax():
+            correct += 1
+    return correct/len(reviews)
+
+
+
+
 
 if __name__ == "__main__":
     args = parse_args()
@@ -43,27 +79,21 @@ if __name__ == "__main__":
         text_encoding_D.include_stop_token  = False
         text_encoding_D.include_start_token = False
 
-    logging.debug('Compiling discriminator...')
+    logging.debug('Declaring models...')
     discriminator = Sequence(Vector(len(text_encoding_D))) >> (Repeat(LSTM(1024), 2) >> Softmax(2))
-
-    logging.debug('Compiling generator...')
-    generator = Generate(Vector(len(text_encoding_G)) >> Repeat(LSTM(1024), 2) >> Softmax(len(text_encoding_G)), args.sequence_length)
-
-    logging.debug('Compiling human-readable generator...')
-    gennet = Sequence(Vector(len(text_encoding_G))) >> Repeat(LSTM(1024), 2) >> Softmax(len(text_encoding_G))
-    generator = generator.tie(gennet)
+    generator     = Generate(Vector(len(text_encoding_G)) >> Repeat(LSTM(1024), 2) >> Softmax(len(text_encoding_G)), args.sequence_length)
+    gennet        = Sequence(Vector(len(text_encoding_G))) >> Repeat(LSTM(1024), 2) >> Softmax(len(text_encoding_G))
+    generator     = generator.tie(gennet)
 
     assert gennet.get_parameters() == generator.get_parameters()
 
-    logging.debug('Compiling GAN...')
+    logging.debug('Declaring GAN...')
     gan = gennet >> discriminator.right
 
-    # Optimization for the generator (G)
+    logging.debug('Compiling GAN...')
     rmsprop_G = RMSProp(gan.left >> Freeze(gan.right), CrossEntropy())
 
-    # Optimization for the discrimator (D)
-    # gan.right.frozen = False
-    # assert len(discriminator.get_parameters()) > 0
+    logging.debug('Compiling discriminator...')
     rmsprop_D = RMSProp(discriminator, CrossEntropy())
 
 
@@ -81,44 +111,9 @@ if __name__ == "__main__":
         discriminator.set_state(state)
 
 
-    def generate_sample(num_reviews):
-        '''Generate a sample from the current version of the generator'''
-        pred_seq = generator.predict(np.tile(np.eye(100)[0], (num_reviews, 1)))
-        return pred_seq
-
-    def generate_fake_reviews(num_reviews):
-        '''Generate fake reviews using the current generator'''
-        pred_seq = generate_sample(num_reviews).argmax(axis=2).T
-        num_seq  = [NumberSequence(pred_seq[i]).decode(text_encoding_D) for i in xrange(num_reviews)]
-        return_str = [''.join(n.seq) for n in num_seq]
-        return return_str
-
-    def predict(text):
-        '''Return prediction array at each time-step of input text'''
-        char_seq   = CharacterSequence.from_string(text)
-        num_seq    = char_seq.encode(text_encoding_D)
-        num_seq_np = num_seq.seq.astype(np.int32)
-        X          = np.eye(len(text_encoding_D))[num_seq_np]
-        return discriminator.predict(X)
-
-    def classification_accuracy(reviews, labels):
-        '''Classification accuracy based on prediction at final time-step'''
-        correct = 0.0
-        reviews = [r.replace('<STR>', '') for r in reviews]
-        reviews = [r.replace('<EOS>', '') for r in reviews]
-
-        for review, label in zip(reviews, labels):
-            pred   = predict(review)[-1][0]
-            print pred, label, pred.argmax() == label.argmax()
-            if pred.argmax() == label.argmax():
-                correct += 1
-        return correct/len(reviews)
-
-
     ###########
     # Stage II
     ###########
-
     def train_generator(iterations, step_size, stop_criteria=0.001):
         '''Train the generative model (G) via a GAN framework'''
 

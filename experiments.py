@@ -22,17 +22,6 @@ logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 
 
-
-# def load_reviews(file_dir):
-# 	'''Loads list of reviews from file_dir'''
-# 	with open(file_dir, 'rb') as f:
-# 		reviews = [r[3:] for r in f.read().strip().split('\n')]
-# 		reviews = [r.replace('\x05',  '') for r in reviews]
-# 		reviews = [r.replace('<STR>', '') for r in reviews]
-# 		reviews = [r for r in reviews if len(r) >= args.sequence_length]
-# 	return reviews
-
-
 def predict(text):
     '''Return prediction array at each time-step of input text'''
     char_seq   = CharacterSequence.from_string(text)
@@ -40,7 +29,6 @@ def predict(text):
     num_seq_np = num_seq.seq.astype(np.int32)
     X          = np.eye(len(text_encoding_D))[num_seq_np]
     return discriminator.predict(X)
-
 
 def text_to_num(text):
 	'''Convert text to number representation'''
@@ -67,7 +55,6 @@ def noise_test(num_reviews, data_dir = 'data/fake_beer_reviews.txt', fractional_
 		print review, '\n'
 		num_seq = text_to_num(review)
 		shape    = num_seq.shape
-
 		print '  Unperturbed: ', discriminator.predict(num_seq)[-1]
 
 		if distribution is 'constant':
@@ -80,20 +67,16 @@ def noise_test(num_reviews, data_dir = 'data/fake_beer_reviews.txt', fractional_
 			blurred = [np.random.dirichlet(num_seq[j,0,:] + fractional_noise) for j in xrange(len(num_seq))]
 			blurred = np.asarray(blurred)
 			blurred = blurred.reshape(shape)
-
 		print '  Perturbed:   ', discriminator.predict(blurred)[-1], '\n'
 
 
 
-
 if __name__ == '__main__':
-
 	logging.debug('Loading encoding...')
 	with open('data/charnet-encoding.pkl', 'rb') as fp:
 		text_encoding_D = pickle.load(fp)
 		text_encoding_D.include_stop_token  = False
 		text_encoding_D.include_start_token = False
-
 
 	discriminator = Sequence(Vector(len(text_encoding_D))) >> (Repeat(LSTM(1024), 2) >> Softmax(2))
 

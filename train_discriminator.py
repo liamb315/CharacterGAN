@@ -27,9 +27,7 @@ def parse_args():
 
 def generate(length, temperature):
     results = charrnn.generate(
-        np.eye(len(encoding))[encoding.encode("i")],
-        length,
-        temperature).argmax(axis=1)
+        np.eye(len(encoding))[encoding.encode("i")],length,temperature).argmax(axis=1)
     return NumberSequence(results).decode(encoding)
 
 
