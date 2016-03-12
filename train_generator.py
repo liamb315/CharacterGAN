@@ -101,7 +101,7 @@ def generate_text_samples(num_reviews):
 	return return_str
 
 
-def generate_training_set(gan_versions=100, reviews_per_gan=3000, train_iter=100, step_size=100):
+def generate_training_set(gan_versions=100, reviews_per_gan=3000, train_iter=100, step_size=1):
 	'''Generate a reviews classically  Note:  Reviews may contain non-unicode characters'''
 	with open('data/fake_beer_reviews_0.1_30000.txt', 'wb') as f:
 		for i in xrange(gan_versions):	
