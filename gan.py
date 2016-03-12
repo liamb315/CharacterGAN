@@ -17,6 +17,7 @@ from deepx.loss import *
 from deepx.optimize import *
 from deepx import backend as T
 from argparse import ArgumentParser
+from utils import *
 
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
@@ -73,23 +74,12 @@ if __name__ == "__main__":
     with open('models/generative/generative-model-0.1.renamed.pkl', 'rb') as fp:
         generator.set_state(pickle.load(fp))
 
-    with open('models/discriminative/discriminative-model-0.0.renamed.pkl', 'rb') as fp:
-    # with open('models/discriminative/discriminative-model-1.0.pkl', 'rb') as fp:
+    # with open('models/discriminative/discriminative-model-0.0.renamed.pkl', 'rb') as fp:
+    with open('models/discriminative/discriminative-model-1.0.pkl', 'rb') as fp:
         state = pickle.load(fp)
         state = (state[0][0], (state[0][1], state[1]))
         discriminator.set_state(state)
 
-    # with open('models/gan/   ', 'rb') as fp:
-    #     gan.set_state(pickle.load(fp))
-
-    def load_reviews(file_dir):
-        '''Loads list of reviews from file_dir'''
-        with open(file_dir, 'rb') as f:
-            reviews = [r[3:] for r in f.read().strip().split('\n')]
-            reviews = [r.replace('\x05',  '') for r in reviews]
-            reviews = [r.replace('<STR>', '') for r in reviews]
-        reviews = [r for r in reviews if len(r) >= args.sequence_length]
-        return reviews
 
     def generate_sample(num_reviews):
         '''Generate a sample from the current version of the generator'''
@@ -201,7 +191,8 @@ if __name__ == "__main__":
         logging.debug('Monitor performance...')
 
         last_review = np.random.randint(num_reviews, len(real_reviews_test))
-        real_reviews = real_reviews_test[last_review : last_review + num_reviews]
+        real_reviews = real_reviews_test[last_review - num_reviews : last_review]
+        
         real_labels  = np.asarray([[0,1] for _ in xrange(len(real_reviews))])
         fake_reviews = generate_fake_reviews(num_reviews)
         fake_labels  = np.asarray([[1,0] for _ in xrange(len(fake_reviews))])
@@ -215,7 +206,7 @@ if __name__ == "__main__":
         '''Alternating GAN procedure for jointly training the generator (G)
         and the discriminator (D)'''
 
-        logging.debug('Loading real reviews...')
+        logging.debug('Loading real reviews...', 200)
         real_reviews_all = load_reviews('data/real_beer_reviews.txt')
         real_reviews_train = real_reviews_all[:100000]
         real_reviews_test  = real_reviews_all[100000:]

@@ -16,10 +16,21 @@ from deepx.loss import *
 from deepx.optimize import *
 from deepx import backend as T
 from argparse import ArgumentParser
+from utils import *
 
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 
+
+
+# def load_reviews(file_dir):
+# 	'''Loads list of reviews from file_dir'''
+# 	with open(file_dir, 'rb') as f:
+# 		reviews = [r[3:] for r in f.read().strip().split('\n')]
+# 		reviews = [r.replace('\x05',  '') for r in reviews]
+# 		reviews = [r.replace('<STR>', '') for r in reviews]
+# 		reviews = [r for r in reviews if len(r) >= args.sequence_length]
+# 	return reviews
 
 
 def predict(text):
@@ -46,13 +57,10 @@ def text_to_num(text):
 def noise_test(num_reviews, data_dir = 'data/fake_beer_reviews.txt', fractional_noise = 0.2, distribution='uniform'):
 	'''Test performance of the discriminator with noise added to one-hot vectors'''
 
-
-	# reviews     = load_reviews('data/fake_beer_reviews_0.0_150000.txt')[-500:][:num_reviews]
-	reviews     = load_reviews('data/fake_beer_reviews.txt')[-500:][:num_reviews]
-	reviews     = [r.replace('<','').replace('>','') for r in reviews]
-
-	# reviews_seq = [text_to_num(r) for r in reviews]
-	# shape       = reviews.shape
+	reviews     = load_reviews(data_dir)
+	last_review = np.random.randint(num_reviews, len(reviews))
+	reviews     = reviews[last_review - num_reviews : last_review]
+	reviews     = [r.replace('<STR>','').replace('<END>','').replace('<','').replace('>','') for r in reviews]
 
 	for i, review in enumerate(reviews):
 		print 'Review #%i'%(i)
@@ -82,14 +90,21 @@ if __name__ == '__main__':
 
 	logging.debug('Loading encoding...')
 	with open('data/charnet-encoding.pkl', 'rb') as fp:
-        text_encoding_D = pickle.load(fp)
-        text_encoding_D.include_stop_token  = False
-        text_encoding_D.include_start_token = False
+		text_encoding_D = pickle.load(fp)
+		text_encoding_D.include_stop_token  = False
+		text_encoding_D.include_start_token = False
 
-    logging.debug('Compiling dscriminator...')
+
 	discriminator = Sequence(Vector(len(text_encoding_D))) >> (Repeat(LSTM(1024), 2) >> Softmax(2))
 
-	noise_test(5000, 0.2, uniform)
+	logging.debug('Loading discriminator...')
+	# with open('models/discriminative/discriminative-model-0.0.renamed.pkl', 'rb') as fp:
+	with open('models/discriminative/discriminative-model-1.0.pkl', 'rb') as fp:
+		state = pickle.load(fp)
+		state = (state[0][0], (state[0][1], state[1]))
+		discriminator.set_state(state)
+
+	noise_test(5)
 
 
 
