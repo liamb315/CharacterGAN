@@ -101,7 +101,7 @@ def generate_text_samples(num_reviews):
 	return return_str
 
 
-def generate_training_set(gan_versions=100, reviews_per_gan=3000, train_iter=50, step_size=100):
+def generate_training_set(gan_versions=100, reviews_per_gan=3000, train_iter=100, step_size=100):
 	'''Generate a reviews classically  Note:  Reviews may contain non-unicode characters'''
 	with open('data/fake_beer_reviews_0.1_30000.txt', 'wb') as f:
 		for i in xrange(gan_versions):	
@@ -149,15 +149,16 @@ if __name__ == '__main__':
 	
 	logging.debug('Compiling graph...')
 	rmsprop = RMSProp(generator, CrossEntropy(), clip_gradients=500)
+	#rmsprop = RMSProp(generator, CrossEntropy())
 
 	def train_generator(iterations, step_size):
 		with open(args.log, 'w') as f:
 			for _ in xrange(iterations):
 				X, y = batcher.next_batch()
-				grads = rmsprop.gradient(X, y)
-				if grads:
-					for g in grads:
-						print np.linalg.norm(np.asarray(g))
+				# grads = rmsprop.gradient(X, y)
+				# if grads:
+				# 	for g in grads:
+				# 		print np.linalg.norm(np.asarray(g))
 				loss = rmsprop.train(X, y, step_size)
 				print >> f, 'Loss[%u]: %f' % (_, loss)
 				print 'Loss[%u]: %f' % (_, loss)
