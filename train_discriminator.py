@@ -71,8 +71,8 @@ if __name__ == "__main__":
     random.seed(1)
     random.shuffle(all_reviews)
 
-    reviews, targets = zip(*all_reviews[:100000])
-    test_reviews, test_targets = zip(*all_reviews[100000:])
+    reviews, targets = zip(*all_reviews[:150000])
+    # test_reviews, test_targets = zip(*all_reviews[500000:])
 
     logging.debug('Retrieving text encoding...')
     with open('data/charnet-encoding.pkl', 'rb') as fp:
@@ -81,7 +81,7 @@ if __name__ == "__main__":
     text_encoding.include_start_token = False
 
     logging.debug("Converting to one-hot...")
-    review_sequences = [CharacterSequence.from_string(review.replace('<STR>', '\x00').replace('<EOS>', '\x01').replace('>', '').replace('<', '')) for review in reviews]
+    review_sequences = [CharacterSequence.from_string(review.replace('<STR>', '\x00').replace('<EOS>', '\x01').replace('>', '').replace('<', '').replace('"','')) for review in reviews]
     
     num_sequences = [c.encode(text_encoding) for c in review_sequences]
     target_sequences = [NumberSequence([target]).replicate(len(r)) for target, r in zip(targets, num_sequences)]
@@ -96,7 +96,8 @@ if __name__ == "__main__":
 
     logging.debug("Compiling discriminator...")
     discriminator = Sequence(Vector(len(text_encoding), batch_size=100)) >> Repeat(LSTM(1024, stateful=True), 2) >> Softmax(2)
-    with open('models/discriminative/discriminative-model-0.0.renamed.pkl', 'rb') as fp:
+    # with open('models/discriminative/discriminative-model-0.0.renamed.pkl', 'rb') as fp:
+    with open('models/discriminative/discriminative-model-1.0.pkl', 'rb') as fp:
         discriminator.set_state(pickle.load(fp))
     
     # Optimization procedure
@@ -113,7 +114,7 @@ if __name__ == "__main__":
                 print "Loss[%u]: %f" % (_, loss)
                 fp.flush()
                 train_loss.append(loss)
-        with open('models/discriminative-model-current.pkl', 'wb') as fp:
+        with open('models/discriminative/discriminative-model-current.pkl', 'wb') as fp:
             pickle.dump(discriminator.get_state(), fp)
           
 
