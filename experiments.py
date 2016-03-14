@@ -55,7 +55,7 @@ def noise_test(num_reviews, data_dir = 'data/fake_beer_reviews.txt', fractional_
 		print review, '\n'
 		num_seq = text_to_num(review)
 		shape    = num_seq.shape
-		print '  Unperturbed: ', discriminator.predict(num_seq)[-1]
+		print '  Unperturbed_0: ', discriminator_0.predict(num_seq)[-1]
 
 		if distribution is 'constant':
 			noise = fractional_noise * np.ones(shape)
@@ -67,7 +67,10 @@ def noise_test(num_reviews, data_dir = 'data/fake_beer_reviews.txt', fractional_
 			blurred = [np.random.dirichlet(num_seq[j,0,:] + fractional_noise) for j in xrange(len(num_seq))]
 			blurred = np.asarray(blurred)
 			blurred = blurred.reshape(shape)
-		print '  Perturbed:   ', discriminator.predict(blurred)[-1], '\n'
+		print '  Perturbed_0:   ', discriminator_0.predict(blurred)[-1], '\n'
+
+		print '  Unperturbed_1: ', discriminator_1.predict(num_seq)[-1]
+		print '  Perturbed_1:   ', discriminator_1.predict(blurred)[-1], '\n'
 
 
 
@@ -78,14 +81,19 @@ if __name__ == '__main__':
 		text_encoding_D.include_stop_token  = False
 		text_encoding_D.include_start_token = False
 
-	discriminator = Sequence(Vector(len(text_encoding_D))) >> (Repeat(LSTM(1024), 2) >> Softmax(2))
+	discriminator_0 = Sequence(Vector(len(text_encoding_D))) >> (Repeat(LSTM(1024), 2) >> Softmax(2))
+	discriminator_1 = Sequence(Vector(len(text_encoding_D))) >> (Repeat(LSTM(1024), 2) >> Softmax(2))
 
-	logging.debug('Loading discriminator...')
-	# with open('models/discriminative/discriminative-model-0.0.renamed.pkl', 'rb') as fp:
-	with open('models/discriminative/discriminative-model-1.0.pkl', 'rb') as fp:
+	logging.debug('Loading discriminators...')
+	with open('models/discriminative/discriminative-model-0.0.renamed.pkl', 'rb') as fp:
 		state = pickle.load(fp)
 		state = (state[0][0], (state[0][1], state[1]))
-		discriminator.set_state(state)
+		discriminator_0.set_state(state)
+
+	with open('models/discriminative/discriminative-model-1.2.pkl', 'rb') as fp:
+		state = pickle.load(fp)
+		state = (state[0][0], (state[0][1], state[1]))
+		discriminator_1.set_state(state)		
 
 	noise_test(5)
 

@@ -97,8 +97,8 @@ if __name__ == "__main__":
     logging.debug("Compiling discriminator...")
     discriminator = Sequence(Vector(len(text_encoding), batch_size=100)) >> Repeat(LSTM(1024, stateful=True), 2) >> Softmax(2)
     # with open('models/discriminative/discriminative-model-0.0.renamed.pkl', 'rb') as fp:
-    with open('models/discriminative/discriminative-model-1.0.pkl', 'rb') as fp:
-        discriminator.set_state(pickle.load(fp))
+    # with open('models/discriminative/discriminative-model-1.0.pkl', 'rb') as fp:
+        # discriminator.set_state(pickle.load(fp))
     
     # Optimization procedure
     rmsprop = RMSProp(discriminator, CrossEntropy(), clip_gradients=5)
