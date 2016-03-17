@@ -118,7 +118,7 @@ if __name__ == "__main__":
     ###########
     # Stage II
     ###########
-    def train_generator(iterations, step_size, stop_criteria=0.001):
+    def train_generator(max_iterations, step_size, stop_criteria=0.001):
         '''Train the generative model (G) via a GAN framework'''
 
         avg_loss = []
@@ -140,18 +140,16 @@ if __name__ == "__main__":
                 fp.flush()
 
 
-    def train_discriminator(iterations, step_size, real_reviews, stop_criteria=0.001):
+    def train_discriminator(max_iterations, step_size, real_reviews, stop_train_loss=0.60):
         '''Train the discriminator (D) on real and fake reviews'''
         random.seed(1)
 
         num_reviews = len(real_reviews)
-
         fake_reviews = generate_sample(num_reviews)
 
         # Load and shuffle reviews
         logging.debug("Converting to one-hot...")
-        batches = []
-        targets = []
+        batches, targets = [], []
         for i in xrange(len(real_reviews)):
             batches.append(np.eye(len(text_encoding_D))[None, CharacterSequence.from_string(real_reviews[i][:args.sequence_length]).encode(text_encoding_D).seq.ravel()])
             assert batches[-1].shape == (1, args.sequence_length, len(text_encoding_D)), batches[-1].shape
@@ -166,19 +164,21 @@ if __name__ == "__main__":
         assert targets.shape == (args.sequence_length, num_reviews * 2, 2), targets.shape
 
         avg_loss = []
-        # rmsprop_D.reset_parameters()
         with open(args.log, 'a+') as fp:
-            for i in xrange(iterations):
-                idx = np.random.permutation(xrange(batches.shape[1]))[:args.batch_size]
-                X, y = batches[:, idx], targets[:, idx]
+            for i in xrange(max_iterations):
+                idx  = np.random.permutation(xrange(batches.shape[1]))[:args.batch_size]
+                X, y = batches[:,idx], targets[:, idx]
                 loss = rmsprop_D.train(X, y, step_size)
                 if i == 0:
                     avg_loss.append(loss)
                 avg_loss.append(loss * 0.05 + avg_loss[-1] * 0.95)
 
-                print >> fp,  "Discriminator Loss[%u]: %f (%f)" % (i, loss, avg_loss[-1])
-                print "Discriminator Loss[%u]: %f (%f)" % (i, loss, avg_loss[-1])
+                print >> fp, 'Discriminator Loss [%u]: %f (%f)' % (i, loss, avg_loss[-1])
+                print 'Discriminator Loss [%u]: %f (%f)' % (i, loss, avg_loss[-1])
                 fp.flush()
+
+                if avg_loss[-1] <= stop_train_loss:
+                    return
 
 
     def monitor_gan(real_reviews_test, num_reviews = 10):
