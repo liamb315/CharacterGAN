@@ -1,7 +1,7 @@
 
 
 
-def load_reviews(file_dir, min_sequence_length=0):
+def load_reviews(file_dir, min_sequence_length=200):
 	'''Loads list of reviews from file_dir'''
 	with open(file_dir, 'rb') as f:
 		reviews = [r[3:] for r in f.read().strip().split('\n')]

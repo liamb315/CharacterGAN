@@ -42,8 +42,11 @@ def generate_fake_reviews(num_reviews):
     return_str = [''.join(n.seq) for n in num_seq]
     return return_str
 
-def predict(text):
+def predict(text, preprocess=True):
     '''Return prediction array at each time-step of input text'''
+    if preprocess:
+        text = text.replace('<STR>','')
+        text = text.replace('<EOS>','')
     char_seq   = CharacterSequence.from_string(text)
     num_seq    = char_seq.encode(text_encoding_D)
     num_seq_np = num_seq.seq.astype(np.int32)
@@ -91,21 +94,22 @@ if __name__ == "__main__":
     gan = gennet >> discriminator.right
 
     logging.debug('Compiling GAN...')
-    rmsprop_G = RMSProp(gan.left >> Freeze(gan.right), CrossEntropy())
+    rmsprop_G = RMSProp(gan.left >> Freeze(gan.right), CrossEntropy(), 500)
 
     logging.debug('Compiling discriminator...')
-    rmsprop_D = RMSProp(discriminator, CrossEntropy())
+    rmsprop_D = RMSProp(discriminator, CrossEntropy(), 500)
 
 
     ##########
     # Stage I
     ##########
     # Load parameters after chaining operations due to known issue in DeepX
-    with open('models/generative/generative-model-0.1.renamed.pkl', 'rb') as fp:
+    # with open('models/generative/generative-model-0.1.renamed.pkl', 'rb') as fp:
+    with open('models/generative/generative-model-2.1.pkl', 'rb') as fp:
         generator.set_state(pickle.load(fp))
 
     # with open('models/discriminative/discriminative-model-0.0.renamed.pkl', 'rb') as fp:
-    with open('models/discriminative/discriminative-model-1.0.pkl', 'rb') as fp:
+    with open('models/discriminative/discriminative-model-2.1.pkl', 'rb') as fp:
         state = pickle.load(fp)
         state = (state[0][0], (state[0][1], state[1]))
         discriminator.set_state(state)
@@ -197,12 +201,12 @@ if __name__ == "__main__":
 
         return real, fake
 
-    def alternating_gan(num_epoch, dis_iter, gen_iter, dis_lr=1, gen_lr=1, num_reviews = 1000, seq_length=args.sequence_length, monitor=True):
+    def alternating_gan(num_epoch, dis_iter, gen_iter, dis_lr=10, gen_lr=1, num_reviews = 1000, seq_length=args.sequence_length, monitor=True):
         '''Alternating GAN procedure for jointly training the generator (G)
         and the discriminator (D)'''
 
-        logging.debug('Loading real reviews...', 200)
-        real_reviews_all = load_reviews('data/real_beer_reviews.txt')
+        logging.debug('Loading real reviews...')
+        real_reviews_all = load_reviews('data/real_beer_reviews.txt', seq_length)
         real_reviews_train = real_reviews_all[:100000]
         real_reviews_test  = real_reviews_all[100000:]
 
@@ -216,7 +220,7 @@ if __name__ == "__main__":
         for i in xrange(num_epoch):
             if monitor:
                 r, f = monitor_gan(real_reviews_test)
-                print r, f
+                print 'Percent correct for real: %f and for fake: %f' % (r, f)
 
 
             logging.debug('Training discriminator...')
