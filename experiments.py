@@ -22,14 +22,6 @@ logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 
 
-def predict(text):
-    '''Return prediction array at each time-step of input text'''
-    char_seq   = CharacterSequence.from_string(text)
-    num_seq    = char_seq.encode(text_encoding_D)
-    num_seq_np = num_seq.seq.astype(np.int32)
-    X          = np.eye(len(text_encoding_D))[num_seq_np]
-    return discriminator.predict(X)
-
 def text_to_num(text):
 	'''Convert text to number representation'''
 	char_seq   = CharacterSequence.from_string(text)
@@ -90,12 +82,12 @@ if __name__ == '__main__':
 		state = (state[0][0], (state[0][1], state[1]))
 		discriminator_0.set_state(state)
 
-	with open('models/discriminative/discriminative-model-1.2.pkl', 'rb') as fp:
+	with open('models/discriminative/discriminative-model-2.1.pkl', 'rb') as fp:
 		state = pickle.load(fp)
 		state = (state[0][0], (state[0][1], state[1]))
 		discriminator_1.set_state(state)		
 
-	noise_test(5)
+	# noise_test(5)
 
 
 
