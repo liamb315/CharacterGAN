@@ -109,10 +109,15 @@ if __name__ == "__main__":
         generator.set_state(pickle.load(fp))
 
     # with open('models/discriminative/discriminative-model-0.0.renamed.pkl', 'rb') as fp:
-    with open('models/discriminative/discriminative-model-2.1.pkl', 'rb') as fp:
+    # with open('models/discriminative/discriminative-model-2.1.pkl', 'rb') as fp:
+    #     state = pickle.load(fp)
+    #     state = (state[0][0], (state[0][1], state[1]))
+    #     discriminator.set_state(state)
+
+    with open('models/discriminative/discriminative-model-3.0.1.pkl', 'rb') as fp:
         state = pickle.load(fp)
-        state = (state[0][0], (state[0][1], state[1]))
         discriminator.set_state(state)
+
 
 
     ###########
@@ -123,7 +128,7 @@ if __name__ == "__main__":
 
         avg_loss = []
         with open(args.log, 'a+') as fp:
-            for i in xrange(iterations):
+            for i in xrange(max_iterations):
                 batch = generate_sample(args.batch_size)
                 starts = np.tile(np.eye(len(text_encoding_D))[0], (1, batch.shape[1], 1))
                 batch = np.concatenate([starts, batch])[:-1]
@@ -140,7 +145,7 @@ if __name__ == "__main__":
                 fp.flush()
 
 
-    def train_discriminator(max_iterations, step_size, real_reviews, stop_train_loss=0.60):
+    def train_discriminator(max_iterations, step_size, real_reviews, stop_train_loss=0.40):
         '''Train the discriminator (D) on real and fake reviews'''
         random.seed(1)
 
@@ -201,7 +206,7 @@ if __name__ == "__main__":
 
         return real, fake
 
-    def alternating_gan(num_epoch, dis_iter, gen_iter, dis_lr=10, gen_lr=1, num_reviews = 1000, seq_length=args.sequence_length, monitor=True):
+    def alternating_gan(num_epoch, dis_iter=250, gen_iter=3, dis_lr=1, gen_lr=1, num_reviews = 15000, seq_length=args.sequence_length, monitor=False):
         '''Alternating GAN procedure for jointly training the generator (G)
         and the discriminator (D)'''
 
@@ -226,7 +231,7 @@ if __name__ == "__main__":
             logging.debug('Training discriminator...')
             last_review  = np.random.randint(num_reviews, len(real_reviews_train))
             real_reviews = real_reviews_train[last_review : last_review + num_reviews]
-            train_discriminator(dis_iter, dis_lr, real_reviews)
+            train_discriminator(dis_iter, dis_lr, real_reviews, 0.15)
 
             logging.debug('Training generator...')
             train_generator(gen_iter, gen_lr)
@@ -241,12 +246,13 @@ if __name__ == "__main__":
                     print >> f, review
 
             logging.debug('Saving models...')
-            with open('models/gan/gan-model-epoch'+str(i)+'.pkl', 'wb') as f:
-                pickle.dump(gan.get_state(), f)
 
-            # with open('models/generative/generative-model-epoch-'+str(i)+'.pkl', 'wb') as f:
-                # pickle.dump(generator.get_state(), f)
+            # with open('models/gan/gan-model-epoch'+str(i)+'.pkl', 'wb') as f:
+            #     pickle.dump(gan.get_state(), f)
 
-            # with open('models/discriminative/discriminative-model-epoch-'+str(i)+'.pkl', 'wb') as f:
-                # pickle.dump(discriminator.get_state(), f)
+            with open('models/generative/generative-model-epoch-'+str(i)+'.pkl', 'wb') as f:
+                pickle.dump(generator.get_state(), f)
+
+            with open('models/discriminative/discriminative-model-epoch-'+str(i)+'.pkl', 'wb') as f:
+                pickle.dump(discriminator.get_state(), f)
 
