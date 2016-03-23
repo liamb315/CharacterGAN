@@ -20,13 +20,22 @@ def plot_gan(args):
         train_loss = []
         labels     = []
         prev_label  = None
+        # cur_label = 1
 
         for i, line in enumerate(f):
             train_loss.append(float(re.search('\((.*?)\)', line).group(1)))
             label = re.search('^\w+', line).group()
+            
 
             if i == 0 or label != prev_label:
                 labels.append(label)
+
+            # if label == 'Generator':
+            #     if cur_label % 5 == 0:
+            #         labels.append(cur_label)
+            #     else:
+            #         labels.append('')
+            #     cur_label += 1
                 
             else:
                 labels.append('')

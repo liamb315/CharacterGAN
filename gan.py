@@ -206,7 +206,7 @@ if __name__ == "__main__":
 
         return real, fake
 
-    def alternating_gan(num_epoch, dis_iter=250, gen_iter=3, dis_lr=1, gen_lr=1, num_reviews = 15000, seq_length=args.sequence_length, monitor=False):
+    def alternating_gan(num_epoch, dis_iter=25, gen_iter=1, dis_lr=1, gen_lr=1, num_reviews = 15000, seq_length=args.sequence_length, monitor=False):
         '''Alternating GAN procedure for jointly training the generator (G)
         and the discriminator (D)'''
 
@@ -217,7 +217,7 @@ if __name__ == "__main__":
 
         logging.debug('Generating fake reviews...')
 
-        fake_reviews = generate_fake_reviews(num_reviews)
+        # fake_reviews = generate_fake_reviews(num_reviews)
 
         with open(args.log, 'w') as fp:
             print >> fp, 'Alternating GAN for ',num_epoch,' epochs.'
@@ -231,7 +231,7 @@ if __name__ == "__main__":
             logging.debug('Training discriminator...')
             last_review  = np.random.randint(num_reviews, len(real_reviews_train))
             real_reviews = real_reviews_train[last_review : last_review + num_reviews]
-            train_discriminator(dis_iter, dis_lr, real_reviews, 0.15)
+            train_discriminator(dis_iter, dis_lr, real_reviews, 0.10)
 
             logging.debug('Training generator...')
             train_generator(gen_iter, gen_lr)
@@ -250,9 +250,15 @@ if __name__ == "__main__":
             # with open('models/gan/gan-model-epoch'+str(i)+'.pkl', 'wb') as f:
             #     pickle.dump(gan.get_state(), f)
 
-            with open('models/generative/generative-model-epoch-'+str(i)+'.pkl', 'wb') as f:
-                pickle.dump(generator.get_state(), f)
+            # with open('models/generative/generative-model-epoch-'+str(i)+'.pkl', 'wb') as f:
+            #     pickle.dump(generator.get_state(), f)
 
-            with open('models/discriminative/discriminative-model-epoch-'+str(i)+'.pkl', 'wb') as f:
-                pickle.dump(discriminator.get_state(), f)
+            # with open('models/discriminative/discriminative-model-epoch-'+str(i)+'.pkl', 'wb') as f:
+            #     pickle.dump(discriminator.get_state(), f)
 
+            if i % 100 == 0:
+                with open('models/generative/generative-gan-model-current.pkl', 'wb') as f:
+                    pickle.dump(generator.get_state(), f)
+
+                with open('models/discriminative/discriminative-gan-model-current.pkl', 'wb') as f:
+                    pickle.dump(discriminator.get_state(), f)
