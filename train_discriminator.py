@@ -21,7 +21,7 @@ def parse_args():
     argparser = ArgumentParser()
     argparser.add_argument("real_file")
     argparser.add_argument("fake_file")
-    argparser.add_argument("--log", default="loss/discriminator_loss_current.txt")
+    argparser.add_argument("--log", default="loss/discriminative/discriminator_loss_current.txt")
     return argparser.parse_args()
 
 
@@ -91,15 +91,23 @@ if __name__ == "__main__":
     # Construct the batcher
     batcher = WindowedBatcher([final_seq], [text_encoding], final_target, sequence_length=200, batch_size=100)
     
-    # batcher = create_data_batcher(reviews, targets, text_encoding)    
-    # test_batcher = create_data_batcher(test_reviews, test_targets, text_encoding, sequence_length=200, batch_size=100)
-
     logging.debug("Compiling discriminator...")
-    discriminator = Sequence(Vector(len(text_encoding), batch_size=100)) >> Repeat(LSTM(1024, stateful=True), 2) >> Softmax(2)
-    with open('models/discriminative/discriminative-model-0.0.renamed.pkl', 'rb') as fp:
-    # with open('models/discriminative/discriminative-model-1.0.pkl', 'rb') as fp:
-        discriminator.set_state(pickle.load(fp))
     
+    #################################
+    # Classic Training Discriminator
+    #################################
+    # discriminator = Sequence(Vector(len(text_encoding), batch_size=100)) >> Repeat(LSTM(1024, stateful=True), 2) >> Softmax(2)
+    
+    # with open('models/discriminative/discriminative-model-0.0.renamed.pkl', 'rb') as fp:
+    # # with open('models/discriminative/discriminative-model-1.0.pkl', 'rb') as fp:
+    #     discriminator.set_state(pickle.load(fp))
+    
+    ####################################
+    # Dropout Training of Discriminator
+    ####################################
+    dropout_lstm = LSTM(1024, stateful=True) >> Dropout(0.5)
+    discriminator = Sequence(Vector(len(text_encoding), batch_size=100)) >> Repeat(dropout_lstm, 2) >> Softmax(2)
+
     # Optimization procedure
     rmsprop = RMSProp(discriminator, CrossEntropy(), clip_gradients=5)
 
@@ -114,7 +122,7 @@ if __name__ == "__main__":
                 print "Loss[%u]: %f" % (_, loss)
                 fp.flush()
                 train_loss.append(loss)
-        with open('models/discriminative/discriminative-model-current.pkl', 'wb') as fp:
+        with open('models/discriminative/discriminative-dropout-model-0.0.pkl', 'wb') as fp:
             pickle.dump(discriminator.get_state(), fp)
           
 

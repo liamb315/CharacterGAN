@@ -20,13 +20,13 @@ logger.setLevel(logging.DEBUG)
 def parse_args():
 	argparser = ArgumentParser()
 	argparser.add_argument("reviews")
-	argparser.add_argument("--log", default="loss/generator_loss_current.txt")
+	argparser.add_argument("--loss_log", default="loss/generative/generator_loss_current.txt")
 	return argparser.parse_args()
 
 
 class WindowedBatcher(object):
 
-	def __init__(self, sequences, encodings, batch_size=100, sequence_length=50):
+	def __init__(self, sequences, encodings, batch_size=100, sequence_length=200):
 		self.sequences = sequences
 
 		self.pre_vector_sizes = [c.seq[0].shape[0] for c in self.sequences]
@@ -137,22 +137,38 @@ if __name__ == '__main__':
 
 	# Batcher and generator
 	batcher          = WindowedBatcher([final_sequences], [text_encoding], sequence_length=200, batch_size=100)
-	generator        = Sequence(Vector(len(text_encoding), batch_size=100)) >> Repeat(LSTM(1024, stateful=True), 2) >> Softmax(len(text_encoding))
-	generator_sample = Generate(Vector(len(text_encoding)) >> Repeat(LSTM(1024), 2) >> Softmax(len(text_encoding)), 500)
+
+
+	############################
+	# Classic Training Generator
+	############################
+	# generator        = Sequence(Vector(len(text_encoding), batch_size=100)) >> Repeat(LSTM(1024, stateful=True), 2) >> Softmax(len(text_encoding))
+	# generator_sample = Generate(Vector(len(text_encoding)) >> Repeat(LSTM(1024), 2) >> Softmax(len(text_encoding)), 500)
 	
-	# Tie the weights
-	generator_sample = generator_sample.tie(generator)
+	# # Tie the weights
+	# generator_sample = generator_sample.tie(generator)
 
 	# logging.debug('Loading prior model...')
 	# with open('models/generative/generative-model-current.pkl', 'rb') as fp:
 	# 	generator.set_state(pickle.load(fp))
+
+
+	##################################
+	# Dropout Training of Generator
+	##################################
+	dropout_lstm     = LSTM(1024, stateful=True) >> Dropout(0.5)
+	generator        = Sequence(Vector(len(text_encoding), batch_size=100)) >> Repeat(dropout_lstm, 2) >> Softmax(len(text_encoding))
+	generator_sample = Generate(Vector(len(text_encoding)) >> Repeat(LSTM(1024) >> Dropout(0.5), 2) >> Softmax(len(text_encoding)), 500)
+
+	# Tie the weights
+	generator_sample = generator_sample.tie(generator)
+
 	
 	logging.debug('Compiling graph...')
 	rmsprop = RMSProp(generator, CrossEntropy(), clip_gradients=500)
-	#rmsprop = RMSProp(generator, CrossEntropy())
 
 	def train_generator(iterations, step_size):
-		with open(args.log, 'a+') as f:
+		with open(args.loss_log, 'a+') as f:
 			for _ in xrange(iterations):
 				X, y = batcher.next_batch()
 				# grads = rmsprop.gradient(X, y)
@@ -164,6 +180,6 @@ if __name__ == '__main__':
 				print 'Loss[%u]: %f' % (_, loss)
 				f.flush()
 
-		with open('models/generative/generative-model-current.pkl', 'wb') as g:
+		with open('models/generative/generative-dropout-model-0.0.1.pkl', 'wb') as g:
 			pickle.dump(generator.get_state(), g)
 
