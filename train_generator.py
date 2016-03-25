@@ -163,9 +163,15 @@ if __name__ == '__main__':
 	# Tie the weights
 	generator_sample = generator_sample.tie(generator)
 
+	logging.debug('Loading prior model...')
+	with open('models/generative/generative-dropout-model-0.0.2.pkl', 'rb') as fp:
+		generator.set_state(pickle.load(fp))
+
+
 	
 	logging.debug('Compiling graph...')
 	rmsprop = RMSProp(generator, CrossEntropy(), clip_gradients=500)
+	# adam    = Adam(generator, CrossEntropy(), clip_gradients=500)
 
 	def train_generator(iterations, step_size):
 		with open(args.loss_log, 'a+') as f:
@@ -176,10 +182,12 @@ if __name__ == '__main__':
 				# 	for g in grads:
 				# 		print np.linalg.norm(np.asarray(g))
 				loss = rmsprop.train(X, y, step_size)
+				# loss = adam.train(X, y, step_size)
+
 				print >> f, 'Loss[%u]: %f' % (_, loss)
 				print 'Loss[%u]: %f' % (_, loss)
 				f.flush()
 
-		with open('models/generative/generative-dropout-model-0.0.1.pkl', 'wb') as g:
+		with open('models/generative/generative-dropout-model-current_0.0.3.pkl', 'wb') as g:
 			pickle.dump(generator.get_state(), g)
 
