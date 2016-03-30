@@ -21,7 +21,7 @@ def parse_args():
     argparser = ArgumentParser()
     argparser.add_argument("real_file")
     argparser.add_argument("fake_file")
-    argparser.add_argument("--log", default="loss/discriminative/discriminator_loss_current.txt")
+    argparser.add_argument("--log", default="loss/discriminative/discriminative_loss_current_lr0.0001.txt")
     return argparser.parse_args()
 
 
@@ -108,8 +108,16 @@ if __name__ == "__main__":
     dropout_lstm = LSTM(1024, stateful=True) >> Dropout(0.5)
     discriminator = Sequence(Vector(len(text_encoding), batch_size=100)) >> Repeat(dropout_lstm, 2) >> Softmax(2)
 
+    # Load dropout generator weights into discriminator
+    generator = Sequence(Vector(len(text_encoding), batch_size=100)) >> Repeat(dropout_lstm, 2) >> Softmax(len(text_encoding))
+    with open('models/generative/generative-dropout-model-0.0.5.pkl') as f:
+        generator.set_state(pickle.load(f))
+
+    discriminator.left.set_state(generator.left.get_state()) 
+
     # Optimization procedure
-    rmsprop = RMSProp(discriminator, CrossEntropy(), clip_gradients=5)
+    loss_function = CrossEntropy(discriminator)
+    adam = Adam(loss_function, clip_gradients=500)
 
     # Training loss
     train_loss = []
@@ -117,12 +125,12 @@ if __name__ == "__main__":
         with open(args.log, 'a+') as fp:
             for _ in xrange(iterations):
                 X, y = batcher.next_batch()
-                loss = rmsprop.train(X,y,step_size)
+                loss = adam.train(X,y,step_size)
                 print >> fp,  "Loss[%u]: %f" % (_, loss)
                 print "Loss[%u]: %f" % (_, loss)
                 fp.flush()
                 train_loss.append(loss)
-        with open('models/discriminative/discriminative-dropout-model-0.0.pkl', 'wb') as fp:
+        with open('models/discriminative/discriminative-dropout-model-0.0.1_lr0.0001.pkl', 'wb') as fp:
             pickle.dump(discriminator.get_state(), fp)
           
 
