@@ -87,47 +87,15 @@ if __name__ == "__main__":
     ################
     # Classic Models
     ################
-    # discriminator = Sequence(Vector(len(text_encoding_D))) >> (Repeat(LSTM(1024), 2) >> Softmax(2))
-    # generator     = Generate(Vector(len(text_encoding_G)) >> Repeat(LSTM(1024), 2) >> Softmax(len(text_encoding_G)), args.sequence_length)
-    # gennet        = Sequence(Vector(len(text_encoding_G))) >> Repeat(LSTM(1024), 2) >> Softmax(len(text_encoding_G))
-    # generator     = generator.tie(gennet)
-
-    # assert gennet.get_parameters() == generator.get_parameters()
-
-    # logging.debug('Declaring GAN...')
-    # gan = gennet >> discriminator.right # Classic
-
-    # logging.debug('Compiling GAN...')
-    # adam_G = Adam(CrossEntropy(gan.left >> Freeze(gan.right)), 500)
-
-    # logging.debug('Compiling discriminator...')
-    # adam_D = Adam(CrossEntropy(discriminator), 500)
-
-    # with open('models/generative/generative-model-2.1.pkl', 'rb') as fp:
-    #     generator.set_state(pickle.load(fp))
-
-    # # with open('models/discriminative/discriminative-model-0.0.renamed.pkl', 'rb') as fp:
-    # # with open('models/discriminative/discriminative-model-2.1.pkl', 'rb') as fp:
-    # #     state = pickle.load(fp)
-    # #     state = (state[0][0], (state[0][1], state[1]))
-    # #     discriminator.set_state(state)
-
-    # with open('models/discriminative/discriminative-model-3.0.1.pkl', 'rb') as fp:
-    #     discriminator.set_state(pickle.load(fp))
-
-
-    ################
-    # Dropout Models
-    ################
-    discriminator = Sequence(Vector(len(text_encoding_D))) >> Repeat(LSTM(1024) >> Dropout(0.5), 2) >> Softmax(2)
-    generator     = Generate(Vector(len(text_encoding_G)) >> Repeat(LSTM(1024) >> Dropout(0.5), 2) >> Softmax(len(text_encoding_G)), args.sequence_length)
-    gennet        = Sequence(Vector(len(text_encoding_G))) >> Repeat(LSTM(1024) >> Dropout(0.5), 2) >> Softmax(len(text_encoding_G))
+    discriminator = Sequence(Vector(len(text_encoding_D))) >> (Repeat(LSTM(1024), 2) >> Softmax(2))
+    generator     = Generate(Vector(len(text_encoding_G)) >> Repeat(LSTM(1024), 2) >> Softmax(len(text_encoding_G)), args.sequence_length)
+    gennet        = Sequence(Vector(len(text_encoding_G))) >> Repeat(LSTM(1024), 2) >> Softmax(len(text_encoding_G))
     generator     = generator.tie(gennet)
 
     assert gennet.get_parameters() == generator.get_parameters()
 
     logging.debug('Declaring GAN...')
-    gan = gennet >> discriminator.left.right >> discriminator.right # Dropout Hack
+    gan = gennet >> discriminator.right # Classic
 
     logging.debug('Compiling GAN...')
     adam_G = Adam(CrossEntropy(gan.left >> Freeze(gan.right)), 500)
@@ -135,11 +103,43 @@ if __name__ == "__main__":
     logging.debug('Compiling discriminator...')
     adam_D = Adam(CrossEntropy(discriminator), 500)
 
-    with open('models/generative/generative-dropout-model-0.0.6.pkl', 'rb') as fp:
+    with open('models/generative/generative-model-2.1.pkl', 'rb') as fp:
         generator.set_state(pickle.load(fp))
 
-    with open('models/discriminative/discriminative-dropout-model-0.0.1_lr0.001.pkl', 'rb') as fp:
+    # with open('models/discriminative/discriminative-model-0.0.renamed.pkl', 'rb') as fp:
+    # with open('models/discriminative/discriminative-model-2.1.pkl', 'rb') as fp:
+    #     state = pickle.load(fp)
+    #     state = (state[0][0], (state[0][1], state[1]))
+    #     discriminator.set_state(state)
+
+    with open('models/discriminative/discriminative-model-3.0.1.pkl', 'rb') as fp:
         discriminator.set_state(pickle.load(fp))
+
+
+    ################
+    # Dropout Models
+    ################
+    # discriminator = Sequence(Vector(len(text_encoding_D))) >> Repeat(LSTM(1024) >> Dropout(0.5), 2) >> Softmax(2)
+    # generator     = Generate(Vector(len(text_encoding_G)) >> Repeat(LSTM(1024) >> Dropout(0.5), 2) >> Softmax(len(text_encoding_G)), args.sequence_length)
+    # gennet        = Sequence(Vector(len(text_encoding_G))) >> Repeat(LSTM(1024) >> Dropout(0.5), 2) >> Softmax(len(text_encoding_G))
+    # generator     = generator.tie(gennet)
+
+    # assert gennet.get_parameters() == generator.get_parameters()
+
+    # logging.debug('Declaring GAN...')
+    # gan = gennet >> discriminator.left.right >> discriminator.right # Dropout Hack
+
+    # logging.debug('Compiling GAN...')
+    # adam_G = Adam(CrossEntropy(gan.left >> Freeze(gan.right)), 500)
+
+    # logging.debug('Compiling discriminator...')
+    # adam_D = Adam(CrossEntropy(discriminator), 500)
+
+    # with open('models/generative/generative-dropout-model-0.0.6.pkl', 'rb') as fp:
+    #     generator.set_state(pickle.load(fp))
+
+    # with open('models/discriminative/discriminative-dropout-model-0.0.2.pkl', 'rb') as fp:
+    #     discriminator.set_state(pickle.load(fp))
 
 
 
@@ -180,16 +180,16 @@ if __name__ == "__main__":
         batches, targets = [], []
         for i in xrange(len(real_reviews)):
             batches.append(np.eye(len(text_encoding_D))[None, CharacterSequence.from_string(real_reviews[i][:args.sequence_length]).encode(text_encoding_D).seq.ravel()])
-            assert batches[-1].shape == (1, args.sequence_length, len(text_encoding_D)), batches[-1].shape
+            # assert batches[-1].shape == (1, args.sequence_length, len(text_encoding_D)), batches[-1].shape
             targets.append(np.tile([0, 1], (1, args.sequence_length, 1)))
         for i in xrange(len(real_reviews)):
             batches.append(fake_reviews[None, :, i])
-            assert batches[-1].shape == (1, args.sequence_length, len(text_encoding_D)), batches[-1].shape
+            # assert batches[-1].shape == (1, args.sequence_length, len(text_encoding_D)), batches[-1].shape
             targets.append(np.tile([1, 0], (1, args.sequence_length, 1)))
         batches = np.concatenate(batches).swapaxes(0, 1)
         targets = np.concatenate(targets).swapaxes(0, 1)
-        assert batches.shape == (args.sequence_length, num_reviews * 2, len(text_encoding_D)), batches.shape
-        assert targets.shape == (args.sequence_length, num_reviews * 2, 2), targets.shape
+        # assert batches.shape == (args.sequence_length, num_reviews * 2, len(text_encoding_D)), batches.shape
+        # assert targets.shape == (args.sequence_length, num_reviews * 2, 2), targets.shape
 
         avg_loss = []
         with open(args.log, 'a+') as fp:
@@ -230,7 +230,7 @@ if __name__ == "__main__":
 
         return real, fake
 
-    def alternating_gan(num_epoch, dis_iter=25, gen_iter=1, dis_lr=0.0001, gen_lr=0.0001, num_reviews = 1000, seq_length=args.sequence_length, monitor=False):
+    def alternating_gan(num_epoch, dis_iter=5, gen_iter=1, dis_lr=0.0001, gen_lr=0.0001, num_reviews = 1000, seq_length=args.sequence_length, monitor=False):
         '''Alternating GAN procedure for jointly training the generator (G)
         and the discriminator (D)'''
 
@@ -258,7 +258,7 @@ if __name__ == "__main__":
             logging.debug('Generating new fake reviews...')
             fake_reviews = generate_fake_reviews(num_reviews)
             
-            with open('data/gan/gan_reviews_dropout_'+str(i)+'.txt', 'wb') as f:
+            with open('data/gan/gan_reviews_'+str(i)+'.txt', 'wb') as f:
                 for review in fake_reviews[:10]:
                     print review
                     print >> f, review
