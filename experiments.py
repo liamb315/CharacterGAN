@@ -64,6 +64,11 @@ def noise_test(num_reviews, data_dir = 'data/fake_beer_reviews.txt', fractional_
 		print '  Unperturbed_1: ', discriminator_1.predict(num_seq)[-1]
 		print '  Perturbed_1:   ', discriminator_1.predict(blurred)[-1], '\n'
 
+###############
+# Experiment 2
+###############
+def discriminator_evaluation():
+	pass
 
 
 if __name__ == '__main__':

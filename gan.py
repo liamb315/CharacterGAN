@@ -69,7 +69,6 @@ def classification_accuracy(reviews, labels):
 
 
 
-
 if __name__ == "__main__":
     args = parse_args()
 
@@ -87,47 +86,15 @@ if __name__ == "__main__":
     ################
     # Classic Models
     ################
-    discriminator = Sequence(Vector(len(text_encoding_D))) >> (Repeat(LSTM(1024), 2) >> Softmax(2))
-    generator     = Generate(Vector(len(text_encoding_G)) >> Repeat(LSTM(1024), 2) >> Softmax(len(text_encoding_G)), args.sequence_length)
-    gennet        = Sequence(Vector(len(text_encoding_G))) >> Repeat(LSTM(1024), 2) >> Softmax(len(text_encoding_G))
-    generator     = generator.tie(gennet)
-
-    assert gennet.get_parameters() == generator.get_parameters()
-
-    logging.debug('Declaring GAN...')
-    gan = gennet >> discriminator.right # Classic
-
-    logging.debug('Compiling GAN...')
-    adam_G = Adam(CrossEntropy(gan.left >> Freeze(gan.right)), 500)
-
-    logging.debug('Compiling discriminator...')
-    adam_D = Adam(CrossEntropy(discriminator), 500)
-
-    with open('models/generative/generative-model-2.1.pkl', 'rb') as fp:
-        generator.set_state(pickle.load(fp))
-
-    # with open('models/discriminative/discriminative-model-0.0.renamed.pkl', 'rb') as fp:
-    # with open('models/discriminative/discriminative-model-2.1.pkl', 'rb') as fp:
-    #     state = pickle.load(fp)
-    #     state = (state[0][0], (state[0][1], state[1]))
-    #     discriminator.set_state(state)
-
-    with open('models/discriminative/discriminative-model-3.0.1.pkl', 'rb') as fp:
-        discriminator.set_state(pickle.load(fp))
-
-
-    ################
-    # Dropout Models
-    ################
-    # discriminator = Sequence(Vector(len(text_encoding_D))) >> Repeat(LSTM(1024) >> Dropout(0.5), 2) >> Softmax(2)
-    # generator     = Generate(Vector(len(text_encoding_G)) >> Repeat(LSTM(1024) >> Dropout(0.5), 2) >> Softmax(len(text_encoding_G)), args.sequence_length)
-    # gennet        = Sequence(Vector(len(text_encoding_G))) >> Repeat(LSTM(1024) >> Dropout(0.5), 2) >> Softmax(len(text_encoding_G))
+    # discriminator = Sequence(Vector(len(text_encoding_D))) >> (Repeat(LSTM(1024), 2) >> Softmax(2))
+    # generator     = Generate(Vector(len(text_encoding_G)) >> Repeat(LSTM(1024), 2) >> Softmax(len(text_encoding_G)), args.sequence_length)
+    # gennet        = Sequence(Vector(len(text_encoding_G))) >> Repeat(LSTM(1024), 2) >> Softmax(len(text_encoding_G))
     # generator     = generator.tie(gennet)
 
     # assert gennet.get_parameters() == generator.get_parameters()
 
     # logging.debug('Declaring GAN...')
-    # gan = gennet >> discriminator.left.right >> discriminator.right # Dropout Hack
+    # gan = gennet >> discriminator.right # Classic
 
     # logging.debug('Compiling GAN...')
     # adam_G = Adam(CrossEntropy(gan.left >> Freeze(gan.right)), 500)
@@ -135,11 +102,43 @@ if __name__ == "__main__":
     # logging.debug('Compiling discriminator...')
     # adam_D = Adam(CrossEntropy(discriminator), 500)
 
-    # with open('models/generative/generative-dropout-model-0.0.6.pkl', 'rb') as fp:
+    # with open('models/generative/generative-model-2.1.pkl', 'rb') as fp:
     #     generator.set_state(pickle.load(fp))
 
-    # with open('models/discriminative/discriminative-dropout-model-0.0.2.pkl', 'rb') as fp:
+    # # with open('models/discriminative/discriminative-model-0.0.renamed.pkl', 'rb') as fp:
+    # # with open('models/discriminative/discriminative-model-2.1.pkl', 'rb') as fp:
+    # #     state = pickle.load(fp)
+    # #     state = (state[0][0], (state[0][1], state[1]))
+    # #     discriminator.set_state(state)
+
+    # with open('models/discriminative/discriminative-model-3.0.1.pkl', 'rb') as fp:
     #     discriminator.set_state(pickle.load(fp))
+
+
+    ################
+    # Dropout Models
+    ################
+    discriminator = Sequence(Vector(len(text_encoding_D))) >> Repeat(LSTM(1024) >> Dropout(0.5), 2) >> Softmax(2)
+    generator     = Generate(Vector(len(text_encoding_G)) >> Repeat(LSTM(1024) >> Dropout(0.5), 2) >> Softmax(len(text_encoding_G)), args.sequence_length)
+    gennet        = Sequence(Vector(len(text_encoding_G))) >> Repeat(LSTM(1024) >> Dropout(0.5), 2) >> Softmax(len(text_encoding_G))
+    generator     = generator.tie(gennet)
+
+    assert gennet.get_parameters() == generator.get_parameters()
+
+    logging.debug('Declaring GAN...')
+    gan = gennet >> discriminator.left.right >> discriminator.right # Dropout Hack
+
+    logging.debug('Compiling GAN...')
+    adam_G = Adam(CrossEntropy(gan.left >> Freeze(gan.right)), 500)
+
+    logging.debug('Compiling discriminator...')
+    adam_D = Adam(CrossEntropy(discriminator), 500)
+
+    with open('models/generative/generative-dropout-model-0.0.6.pkl', 'rb') as fp:
+        generator.set_state(pickle.load(fp))
+
+    with open('models/discriminative/discriminative-dropout-model-0.0.2.pkl', 'rb') as fp:
+        discriminator.set_state(pickle.load(fp))
 
 
 

@@ -26,7 +26,7 @@ def parse_args():
 
 class WindowedBatcher(object):
 
-	def __init__(self, sequences, encodings, batch_size=100, sequence_length=200):
+	def __init__(self, sequences, encodings, batch_size=10, sequence_length=200):
 		self.sequences = sequences
 
 		self.pre_vector_sizes = [c.seq[0].shape[0] for c in self.sequences]
@@ -139,37 +139,38 @@ if __name__ == '__main__':
 	batcher          = WindowedBatcher([final_sequences], [text_encoding], sequence_length=200, batch_size=100)
 
 
-	############################
+	#############################
 	# Classic Training Generator
-	############################
-	# generator        = Sequence(Vector(len(text_encoding), batch_size=100)) >> Repeat(LSTM(1024, stateful=True), 2) >> Softmax(len(text_encoding))
-	# generator_sample = Generate(Vector(len(text_encoding)) >> Repeat(LSTM(1024), 2) >> Softmax(len(text_encoding)), 500)
+	#############################
+	generator        = Sequence(Vector(len(text_encoding), batch_size=100)) >> Repeat(LSTM(1024, stateful=True), 2) >> Softmax(len(text_encoding))
+	generator_sample = Generate(Vector(len(text_encoding)) >> Repeat(LSTM(1024), 2) >> Softmax(len(text_encoding)), 500)
 	
-	# # Tie the weights
-	# generator_sample = generator_sample.tie(generator)
+	# Tie the weights
+	generator_sample = generator_sample.tie(generator)
 
-	# logging.debug('Loading prior model...')
-	# with open('models/generative/generative-model-current.pkl', 'rb') as fp:
-	# 	generator.set_state(pickle.load(fp))
+	logging.debug('Loading prior model...')
+	with open('models/generative/generative-model-2.0.1.pkl', 'rb') as fp:
+		generator.set_state(pickle.load(fp))
 
 
 	##################################
 	# Dropout Training of Generator
 	##################################
-	dropout_lstm     = LSTM(1024, stateful=True) >> Dropout(0.5)
-	generator        = Sequence(Vector(len(text_encoding), batch_size=100)) >> Repeat(dropout_lstm, 2) >> Softmax(len(text_encoding))
-	generator_sample = Generate(Vector(len(text_encoding)) >> Repeat(LSTM(1024) >> Dropout(0.5), 2) >> Softmax(len(text_encoding)), 500)
+	# dropout_lstm     = LSTM(1024, stateful=True) >> Dropout(0.5)
+	# generator        = Sequence(Vector(len(text_encoding), batch_size=100)) >> Repeat(dropout_lstm, 2) >> Softmax(len(text_encoding))
+	# generator_sample = Generate(Vector(len(text_encoding)) >> Repeat(LSTM(1024) >> Dropout(0.5), 2) >> Softmax(len(text_encoding)), 500)
 
-	# Tie the weights
-	generator_sample = generator_sample.tie(generator)
+	# # Tie the weights
+	# generator_sample = generator_sample.tie(generator)
 
-	logging.debug('Loading prior model...')
-	with open('models/generative/generative-dropout-model-0.0.5.pkl', 'rb') as fp:
-		generator.set_state(pickle.load(fp))
+	# logging.debug('Loading prior model...')
+	# with open('models/generative/generative-dropout-model-0.0.5.pkl', 'rb') as fp:
+	# 	generator.set_state(pickle.load(fp))
 
 	
 	logging.debug('Compiling graph...')
-	loss_function = CrossEntropy(generator)
+	# loss_function = CrossEntropy(generator)
+	loss_function = AdversarialLoss(CrossEntropy(generator))
 	adam    = Adam(loss_function, clip_gradients=500)
 
 	def train_generator(iterations, step_size):
@@ -186,6 +187,6 @@ if __name__ == '__main__':
 				print 'Loss[%u]: %f' % (_, loss)
 				f.flush()
 
-		with open('models/generative/generative-dropout-model-0.0.6.pkl', 'wb') as g:
+		with open('models/generative/generative-adversarial-model-0.0.0.pkl', 'wb') as g:
 			pickle.dump(generator.get_state(), g)
 
