@@ -27,7 +27,9 @@ def parse_args():
     argparser = ArgumentParser()
     argparser.add_argument('--sequence_length', default=200)
     argparser.add_argument('--batch_size', default=100)
-    argparser.add_argument('--log', default='loss/gan/gan_log_current_dropout.txt')
+    argparser.add_argument('--dropout_rate', default=0.0, type=float)
+    argparser.add_argument('--save_model_every', default=100, type=int)
+    argparser.add_argument('--log', default='loss/gan/gan_log_current.txt')
     return argparser.parse_args()
 
 def generate_sample(num_reviews):
@@ -83,63 +85,65 @@ if __name__ == "__main__":
 
     logging.debug('Declaring models...')
     
-    ################
+
     # Classic Models
-    ################
-    # discriminator = Sequence(Vector(len(text_encoding_D))) >> (Repeat(LSTM(1024), 2) >> Softmax(2))
-    # generator     = Generate(Vector(len(text_encoding_G)) >> Repeat(LSTM(1024), 2) >> Softmax(len(text_encoding_G)), args.sequence_length)
-    # gennet        = Sequence(Vector(len(text_encoding_G))) >> Repeat(LSTM(1024), 2) >> Softmax(len(text_encoding_G))
-    # generator     = generator.tie(gennet)
+    if args.dropout_rate == 0.0:
+        discriminator = Sequence(Vector(len(text_encoding_D))) >> (Repeat(LSTM(1024), 2) >> Softmax(2))
+        generator     = Generate(Vector(len(text_encoding_G)) >> Repeat(LSTM(1024), 2) >> Softmax(len(text_encoding_G)), args.sequence_length)
+        gennet        = Sequence(Vector(len(text_encoding_G))) >> Repeat(LSTM(1024), 2) >> Softmax(len(text_encoding_G))
+        generator     = generator.tie(gennet)
 
-    # assert gennet.get_parameters() == generator.get_parameters()
+        assert gennet.get_parameters() == generator.get_parameters()
 
-    # logging.debug('Declaring GAN...')
-    # gan = gennet >> discriminator.right # Classic
+        logging.debug('Declaring GAN...')
+        gan = gennet >> discriminator.right # Classic
 
-    # logging.debug('Compiling GAN...')
-    # adam_G = Adam(CrossEntropy(gan.left >> Freeze(gan.right)), 500)
+        logging.debug('Compiling GAN...')
+        adam_G = Adam(CrossEntropy(gan.left >> Freeze(gan.right)), 500)
 
-    # logging.debug('Compiling discriminator...')
-    # adam_D = Adam(CrossEntropy(discriminator), 500)
+        logging.debug('Compiling discriminator...')
+        adam_D = Adam(CrossEntropy(discriminator), 500)
 
-    # with open('models/generative/generative-model-2.1.pkl', 'rb') as fp:
-    #     generator.set_state(pickle.load(fp))
+        with open('models/generative/generative-model-2.1.pkl', 'rb') as fp:
+            generator.set_state(pickle.load(fp))
 
-    # # with open('models/discriminative/discriminative-model-0.0.renamed.pkl', 'rb') as fp:
-    # # with open('models/discriminative/discriminative-model-2.1.pkl', 'rb') as fp:
-    # #     state = pickle.load(fp)
-    # #     state = (state[0][0], (state[0][1], state[1]))
-    # #     discriminator.set_state(state)
+        # with open('models/discriminative/discriminative-model-0.0.renamed.pkl', 'rb') as fp:
+        # with open('models/discriminative/discriminative-model-2.1.pkl', 'rb') as fp:
+        #     state = pickle.load(fp)
+        #     state = (state[0][0], (state[0][1], state[1]))
+        #     discriminator.set_state(state)
 
-    # with open('models/discriminative/discriminative-model-3.0.1.pkl', 'rb') as fp:
-    #     discriminator.set_state(pickle.load(fp))
+        with open('models/discriminative/discriminative-model-3.0.1.pkl', 'rb') as fp:
+            discriminator.set_state(pickle.load(fp))
 
-
-    ################
     # Dropout Models
-    ################
-    discriminator = Sequence(Vector(len(text_encoding_D))) >> Repeat(LSTM(1024) >> Dropout(0.5), 2) >> Softmax(2)
-    generator     = Generate(Vector(len(text_encoding_G)) >> Repeat(LSTM(1024) >> Dropout(0.5), 2) >> Softmax(len(text_encoding_G)), args.sequence_length)
-    gennet        = Sequence(Vector(len(text_encoding_G))) >> Repeat(LSTM(1024) >> Dropout(0.5), 2) >> Softmax(len(text_encoding_G))
-    generator     = generator.tie(gennet)
+    elif args.dropout_rate > 0.0 and args.dropout_rate <= 1.0:
+        rate = args.dropout_rate
 
-    assert gennet.get_parameters() == generator.get_parameters()
+        discriminator = Sequence(Vector(len(text_encoding_D))) >> Repeat(LSTM(1024) >> Dropout(rate), 2) >> Softmax(2)
+        generator     = Generate(Vector(len(text_encoding_G)) >> Repeat(LSTM(1024) >> Dropout(rate), 2) >> Softmax(len(text_encoding_G)), args.sequence_length)
+        gennet        = Sequence(Vector(len(text_encoding_G))) >> Repeat(LSTM(1024) >> Dropout(rate), 2) >> Softmax(len(text_encoding_G))
+        generator     = generator.tie(gennet)
 
-    logging.debug('Declaring GAN...')
-    gan = gennet >> discriminator.left.right >> discriminator.right # Dropout Hack
+        assert gennet.get_parameters() == generator.get_parameters()
 
-    logging.debug('Compiling GAN...')
-    adam_G = Adam(CrossEntropy(gan.left >> Freeze(gan.right)), 500)
+        logging.debug('Declaring GAN...')
+        gan = gennet >> discriminator.left.right >> discriminator.right # Dropout Hack
 
-    logging.debug('Compiling discriminator...')
-    adam_D = Adam(CrossEntropy(discriminator), 500)
+        logging.debug('Compiling GAN...')
+        adam_G = Adam(CrossEntropy(gan.left >> Freeze(gan.right)), 500)
 
-    with open('models/generative/generative-dropout-model-0.0.6.pkl', 'rb') as fp:
-        generator.set_state(pickle.load(fp))
+        logging.debug('Compiling discriminator...')
+        adam_D = Adam(CrossEntropy(discriminator), 500)
 
-    with open('models/discriminative/discriminative-dropout-model-0.0.2.pkl', 'rb') as fp:
-        discriminator.set_state(pickle.load(fp))
+        with open('models/generative/generative-dropout-model-0.0.6.pkl', 'rb') as fp:
+            generator.set_state(pickle.load(fp))
 
+        with open('models/discriminative/discriminative-dropout-model-0.0.2.pkl', 'rb') as fp:
+            discriminator.set_state(pickle.load(fp))
+    
+    else:
+        raise ValueError('Dropout rate must be greater or equal to 0.0 and less than or equal to 1.0')
 
 
     ###########
@@ -263,11 +267,10 @@ if __name__ == "__main__":
                     print >> f, review
 
             # logging.debug('Saving models...')
-
             # with open('models/gan/gan-model-epoch'+str(i)+'.pkl', 'wb') as f:
             #     pickle.dump(gan.get_state(), f)
 
-            # if i % 100 == 0:
+            # if i % args.save_model_every == 0:
             #     with open('models/generative/generative-gan-model-current.pkl', 'wb') as f:
             #         pickle.dump(generator.get_state(), f)
 
