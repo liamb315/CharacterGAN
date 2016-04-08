@@ -107,13 +107,12 @@ if __name__ == "__main__":
         with open('models/generative/generative-model-2.1.pkl', 'rb') as fp:
             generator.set_state(pickle.load(fp))
 
-        # with open('models/discriminative/discriminative-model-0.0.renamed.pkl', 'rb') as fp:
-        # with open('models/discriminative/discriminative-model-2.1.pkl', 'rb') as fp:
+        # # with open('models/discriminative/discriminative-model-0.2.1.pkl', 'rb') as fp:
         #     state = pickle.load(fp)
         #     state = (state[0][0], (state[0][1], state[1]))
         #     discriminator.set_state(state)
 
-        with open('models/discriminative/discriminative-model-3.0.1.pkl', 'rb') as fp:
+        with open('models/discriminative/discriminative-model-0.3.1.pkl', 'rb') as fp:
             discriminator.set_state(pickle.load(fp))
 
     # Dropout Models
@@ -261,7 +260,7 @@ if __name__ == "__main__":
             logging.debug('Generating new fake reviews...')
             fake_reviews = generate_fake_reviews(num_reviews)
             
-            with open('data/gan/gan_reviews_'+str(i)+'.txt', 'wb') as f:
+            with open('data/gan/gan_reviews_current.txt', 'wb') as f:
                 for review in fake_reviews[:10]:
                     print review
                     print >> f, review

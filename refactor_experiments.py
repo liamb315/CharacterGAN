@@ -1,8 +1,4 @@
 import numpy as np
-from deepx.nn import *
-from deepx.rnn import *
-from deepx.loss import *
-from deepx.optimize import *
 
 import cPickle as pickle
 import theano
@@ -11,6 +7,12 @@ import csv
 import logging
 import random
 from dataset import *
+
+from deepx.nn import *
+from deepx.rnn import *
+from deepx.loss import *
+from deepx.optimize import *
+
 from batcher import *
 from argparse import ArgumentParser
 theano.config.on_unused_input = 'ignore'
@@ -21,10 +23,8 @@ def parse_args():
 	argparser = ArgumentParser()
 	argparser.add_argument("real_file")
 	argparser.add_argument("fake_file")
-	argparser.add_argument("--log", default="loss/discriminative/discriminative-adversarial-loss-0.0.0.txt")
+	argparser.add_argument("--log", default="loss/discriminative/discriminative-adversarial-dropout-loss-0.0.0.txt")
 	return argparser.parse_args()
-
-
 
 
 if __name__ == "__main__":
@@ -73,11 +73,30 @@ if __name__ == "__main__":
 	
 	logging.debug("Compiling discriminator...")
 	
-	# Failing here on refactor branch
-	#  TypeError: unsupported operand type(s) for >>: 'Sequence' and 'Chain'
-	discriminator = Sequence(Vector(len(text_encoding), batch_size=100)) >> Repeat(LSTM(1024, stateful=True), 2) >> Softmax(2)
+	# # Classical
+	# discriminator = Sequence(Vector(len(text_encoding), batch_size=100)) >> Repeat(LSTM(1024, stateful=True), 2) >> Softmax(2)
 	
-	with open('models/discriminative/discriminative-model-0.0.renamed.pkl', 'rb') as fp:
-	# with open('models/discriminative/discriminative-model-1.0.pkl', 'rb') as fp:
-		discriminator.set_state(pickle.load(fp))
+	# with open('models/discriminative/discriminative-model-0.0.0.pkl', 'rb') as fp:
+	# 	discriminator.set_state(pickle.load(fp))
 
+	# Dropout
+	discriminator = Sequence(Vector(len(text_encoding))) >> Repeat(LSTM(1024) >> Dropout(0.5), 2) >> Softmax(2)
+	with open('models/discriminative/discriminative-dropout-model-0.0.2.pkl', 'rb') as fp:
+            discriminator.set_state(pickle.load(fp))
+
+	# Optimization procedure
+	loss_function = AdversarialLoss(discriminator >> CrossEntropy(), discriminator.get_inputs()[0])
+	adam = Adam(loss_function, clip_gradients=500)
+
+	train_loss = []
+	def train_discriminator(iterations, step_size):
+		with open(args.log, 'a+') as fp:
+			for _ in xrange(iterations):
+				X, y = batcher.next_batch()
+				loss = adam.train(X,y,step_size)
+				print >> fp,  "Loss[%u]: %f" % (_, loss)
+				print "Loss[%u]: %f" % (_, loss)
+				fp.flush()
+				train_loss.append(loss)
+		with open('models/discriminative/discriminative-adversarial-dropout-model-0.0.0.pkl', 'wb') as fp:
+			pickle.dump(discriminator.get_state(), fp)
