@@ -99,10 +99,12 @@ if __name__ == "__main__":
         gan = gennet >> discriminator.right # Classic
 
         logging.debug('Compiling GAN...')
-        adam_G = Adam(CrossEntropy(gan.left >> Freeze(gan.right)), 500)
+        # adam_G = Adam(CrossEntropy(gan.left >> Freeze(gan.right)), 500) # master (4/9/16)
+        adam_G = Adam(gan.left >> Freeze(gan.right) >> CrossEntropy(), 500) # refactor
 
         logging.debug('Compiling discriminator...')
-        adam_D = Adam(CrossEntropy(discriminator), 500)
+        #  adam_D = Adam(CrossEntropy(discriminator), 500) # master (4/9/16)
+        adam_D = Adam(discriminator >> CrossEntropy(), 500) # refactor
 
         with open('models/generative/generative-model-2.1.pkl', 'rb') as fp:
             generator.set_state(pickle.load(fp))
@@ -130,15 +132,17 @@ if __name__ == "__main__":
         gan = gennet >> discriminator.left.right >> discriminator.right # Dropout Hack
 
         logging.debug('Compiling GAN...')
-        adam_G = Adam(CrossEntropy(gan.left >> Freeze(gan.right)), 500)
+        # adam_G = Adam(CrossEntropy(gan.left >> Freeze(gan.right)), 500) # master (4/9/16)
+        adam_G = Adam(gan.left >> Freeze(gan.right) >> CrossEntropy(), 500) # refactor
 
         logging.debug('Compiling discriminator...')
-        adam_D = Adam(CrossEntropy(discriminator), 500)
+        # adam_D = Adam(CrossEntropy(discriminator), 500) # master (4/9/16)
+        adam_D = Adam(discriminator >> CrossEntropy()) #refactor
 
         with open('models/generative/generative-dropout-model-0.0.6.pkl', 'rb') as fp:
             generator.set_state(pickle.load(fp))
 
-        with open('models/discriminative/discriminative-dropout-model-0.0.2.pkl', 'rb') as fp:
+        with open('models/discriminative/discriminative-adversarial-dropout-model-0.1.0.pkl', 'rb') as fp:
             discriminator.set_state(pickle.load(fp))
     
     else:
@@ -159,7 +163,7 @@ if __name__ == "__main__":
                 batch = np.concatenate([starts, batch])[:-1]
                 y = np.tile([0, 1], (args.sequence_length, args.batch_size, 1))
                 loss = adam_G.train(batch, y, step_size)
-                adam_G.loss.model.reset_states()                
+                # adam_G.loss.model.reset_states()  # master (4/9/16)              
 
                 if i == 0:
                     avg_loss.append(loss)
@@ -261,9 +265,9 @@ if __name__ == "__main__":
             fake_reviews = generate_fake_reviews(num_reviews)
             
             with open('data/gan/gan_reviews_current.txt', 'wb') as f:
+                print >> f, fake_reviews[0]
                 for review in fake_reviews[:10]:
                     print review
-                    print >> f, review
 
             # logging.debug('Saving models...')
             # with open('models/gan/gan-model-epoch'+str(i)+'.pkl', 'wb') as f:
