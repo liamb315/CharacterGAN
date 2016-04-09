@@ -130,32 +130,32 @@ def discriminator_evaluation(models, encoding, num_sequences=5):
 	print 'Real'
 	for review in real_reviews:
 		print review
-		for model in models:
-			print predict(model, encoding, review)[-1]
+		for name, model in models.items():
+			print('{:<25}: {:<10.3} {:< 10.3}'.format(name, *predict(model, encoding, review)[-1][0]))
 		print '\n'
 
 	print 'Fake'
 	for review in fake_reviews:
 		print review
 		
-		for model in models:
-			print predict(model, encoding, review)[-1]
+		for name, model in models.items():
+			print('{:<25}: {:<10.3} {:< 10.3}'.format(name, *predict(model, encoding, review)[-1][0]))
 		print '\n'
 
 	print 'Repeating'
 	for review in repeating_chars:
 		print review
 		
-		for model in models:
-			print predict(model, encoding, review)[-1]
+		for name, model in models.items():
+			print('{:<25}: {:<10.3} {:< 10.3}'.format(name, *predict(model, encoding, review)[-1][0]))
 		print '\n'
 
 	print 'Random'
 	for review in random_chars:
 		print review
 		
-		for model in models:
-			print predict(model, encoding, review)[-1]
+		for name, model in models.items():
+			print('{:<25}: {:<10.3} {:< 10.3}'.format(name, *predict(model, encoding, review)[-1][0]))
 		print '\n'
 
 
@@ -196,6 +196,7 @@ if __name__ == '__main__':
 	discriminator_2 = Sequence(Vector(len(text_encoding_D))) >> Repeat(LSTM(1024) >> Dropout(0.5), 2) >> Softmax(2)
 	discriminator_3 = Sequence(Vector(len(text_encoding_D))) >> (Repeat(LSTM(1024), 2) >> Softmax(2))
 	discriminator_4 = Sequence(Vector(len(text_encoding_D))) >> Repeat(LSTM(1024) >> Dropout(0.5), 2) >> Softmax(2)
+	discriminator_5 = Sequence(Vector(len(text_encoding_D))) >> Repeat(LSTM(1024) >> Dropout(0.5), 2) >> Softmax(2)
 
 	logging.debug('Loading discriminators...')
 	with open('models/discriminative/discriminative-model-0.0.0.pkl', 'rb') as fp:
@@ -217,12 +218,16 @@ if __name__ == '__main__':
 	with open('models/discriminative/discriminative-adversarial-dropout-model-0.0.0.pkl', 'rb') as fp:
 		discriminator_4.set_state(pickle.load(fp))
 
+	with open('models/discriminative/discriminative-adversarial-dropout-model-0.1.0.pkl', 'rb') as fp:
+		discriminator_5.set_state(pickle.load(fp))
+
 	models = {
 		'original': discriminator_0, 
 		'mix': discriminator_1, 
 		'dropout': discriminator_2,
 		'adversarial': discriminator_3, 
-		'adversarial_dropout': discriminator_4}
+		'adversarial_dropout': discriminator_4,
+		'adversarial_dropout_mix': discriminator_5}
 
 	# discriminator_evaluation(models, text_encoding_D, 5)
 
