@@ -7,6 +7,8 @@ def load_reviews(file_dir, min_sequence_length=200):
 		reviews = [r[3:] for r in f.read().strip().split('\n')]
 		reviews = [r.replace('\x05',  '') for r in reviews]
 		reviews = [r.replace('<STR>', '') for r in reviews]
+		reviews = [r.replace('<', '') for r in reviews]
+		reviews = [r.replace('>', '') for r in reviews]
 	reviews = [r for r in reviews if len(r) >= min_sequence_length]
 	return reviews
 
