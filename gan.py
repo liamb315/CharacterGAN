@@ -29,7 +29,7 @@ def parse_args():
     argparser.add_argument('--batch_size', default=100)
     argparser.add_argument('--dropout_rate', default=0.0, type=float)
     argparser.add_argument('--save_model_every', default=100, type=int)
-    argparser.add_argument('--log', default='loss/gan/gan_log_current.txt')
+    argparser.add_argument('--log', default='loss/gan/gan_adversarial_log_current.txt')
     return argparser.parse_args()
 
 def generate_sample(num_reviews):
@@ -137,7 +137,9 @@ if __name__ == "__main__":
 
         logging.debug('Compiling discriminator...')
         # adam_D = Adam(CrossEntropy(discriminator), 500) # master (4/9/16)
-        adam_D = Adam(discriminator >> CrossEntropy()) #refactor
+        # adam_D = Adam(discriminator >> CrossEntropy(), 500) #refactor
+        loss_D = AdversarialLoss(discriminator >> CrossEntropy(), discriminator.get_inputs()[0])
+        adam_D = Adam(loss_D, 500)
 
         with open('models/generative/generative-dropout-model-0.0.6.pkl', 'rb') as fp:
             generator.set_state(pickle.load(fp))
@@ -236,7 +238,7 @@ if __name__ == "__main__":
 
         return real, fake
 
-    def alternating_gan(num_epoch, dis_iter=5, gen_iter=1, dis_lr=0.0001, gen_lr=0.0001, num_reviews = 1000, seq_length=args.sequence_length, monitor=False):
+    def alternating_gan(num_epoch, dis_iter=1, gen_iter=1, dis_lr=0.0001, gen_lr=0.0001, num_reviews = 1000, seq_length=args.sequence_length, monitor=False):
         '''Alternating GAN procedure for jointly training the generator (G)
         and the discriminator (D)'''
 
@@ -264,10 +266,10 @@ if __name__ == "__main__":
             logging.debug('Generating new fake reviews...')
             fake_reviews = generate_fake_reviews(num_reviews)
             
-            with open('data/gan/gan_reviews_current.txt', 'wb') as f:
+            with open('data/gan/gan_adversarial_reviews_current.txt', 'a+') as f:
                 print >> f, fake_reviews[0]
                 for review in fake_reviews[:10]:
-                    print review
+                    print review    
 
             # logging.debug('Saving models...')
             # with open('models/gan/gan-model-epoch'+str(i)+'.pkl', 'wb') as f:
