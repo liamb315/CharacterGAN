@@ -27,7 +27,7 @@ def parse_args():
     argparser = ArgumentParser()
     argparser.add_argument('--sequence_length', default=200)
     argparser.add_argument('--batch_size', default=100)
-    argparser.add_argument('--dropout_rate', default=0.0, type=float)
+    argparser.add_argument('--dropout_rate', default=0.5, type=float)
     argparser.add_argument('--save_model_every', default=100, type=int)
     argparser.add_argument('--log', default='loss/gan/gan_adversarial_log_current.txt')
     return argparser.parse_args()
@@ -154,7 +154,7 @@ if __name__ == "__main__":
     ###########
     # Stage II
     ###########
-    def train_generator(max_iterations, step_size, stop_criteria=0.001):
+    def train_generator(max_iterations, step_size, stop_train_loss=1.1):
         '''Train the generative model (G) via a GAN framework'''
 
         avg_loss = []
@@ -175,8 +175,11 @@ if __name__ == "__main__":
                 print "Generator Loss[%u]: %f (%f)" % (i, loss, avg_loss[-1])
                 fp.flush()
 
+                if loss <= stop_train_loss:
+                    return
 
-    def train_discriminator(max_iterations, step_size, real_reviews, stop_train_loss=0.40):
+
+    def train_discriminator(max_iterations, step_size, real_reviews, stop_train_loss=0.50):
         '''Train the discriminator (D) on real and fake reviews'''
         random.seed(1)
 
@@ -214,7 +217,7 @@ if __name__ == "__main__":
                 print 'Discriminator Loss [%u]: %f (%f)' % (i, loss, avg_loss[-1])
                 fp.flush()
 
-                if avg_loss[-1] <= stop_train_loss:
+                if loss <= stop_train_loss:
                     return
 
 
@@ -258,7 +261,7 @@ if __name__ == "__main__":
             logging.debug('Training discriminator...')
             last_review  = np.random.randint(num_reviews, len(real_reviews_train))
             real_reviews = real_reviews_train[last_review : last_review + num_reviews]
-            train_discriminator(dis_iter, dis_lr, real_reviews, 0.10)
+            train_discriminator(dis_iter, dis_lr, real_reviews)
 
             logging.debug('Training generator...')
             train_generator(gen_iter, gen_lr)
