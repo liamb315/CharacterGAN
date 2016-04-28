@@ -99,11 +99,9 @@ if __name__ == "__main__":
         gan = gennet >> discriminator.right # Classic
 
         logging.debug('Compiling GAN...')
-        # adam_G = Adam(CrossEntropy(gan.left >> Freeze(gan.right)), 500) # master (4/9/16)
         adam_G = Adam(gan.left >> Freeze(gan.right) >> CrossEntropy(), 500) # refactor
 
         logging.debug('Compiling discriminator...')
-        #  adam_D = Adam(CrossEntropy(discriminator), 500) # master (4/9/16)
         adam_D = Adam(discriminator >> CrossEntropy(), 500) # refactor
 
         with open('models/generative/generative-model-2.1.pkl', 'rb') as fp:
@@ -141,11 +139,12 @@ if __name__ == "__main__":
         loss_D = AdversarialLoss(discriminator >> CrossEntropy(), discriminator.get_inputs()[0])
         adam_D = Adam(loss_D, 500)
 
-        with open('models/generative/generative-dropout-model-0.0.6.pkl', 'rb') as fp:
-            generator.set_state(pickle.load(fp))
+        # Experiment 1
+        # with open('models/generative/generative-dropout-model-0.0.6.pkl', 'rb') as fp:
+        #     generator.set_state(pickle.load(fp))
 
-        with open('models/discriminative/discriminative-adversarial-dropout-model-0.1.0.pkl', 'rb') as fp:
-            discriminator.set_state(pickle.load(fp))
+        # with open('models/discriminative/discriminative-adversarial-dropout-model-0.1.0.pkl', 'rb') as fp:
+        #     discriminator.set_state(pickle.load(fp))
     
     else:
         raise ValueError('Dropout rate must be greater or equal to 0.0 and less than or equal to 1.0')
@@ -205,7 +204,8 @@ if __name__ == "__main__":
         avg_loss = []
         with open(args.log, 'a+') as fp:
             for i in xrange(max_iterations):
-                idx  = np.random.permutation(xrange(batches.shape[1]))[:args.batch_size]
+                # idx  = np.random.permutation(xrange(batches.shape[1]))[:args.batch_size]
+                idx = 0
                 X, y = batches[:,idx], targets[:, idx]
                 loss = adam_D.train(X, y, step_size)
                 
@@ -246,9 +246,11 @@ if __name__ == "__main__":
         and the discriminator (D)'''
 
         logging.debug('Loading real reviews...')
-        real_reviews_all = load_reviews('data/real_beer_reviews.txt', seq_length)
-        real_reviews_train = real_reviews_all[:100000]
-        real_reviews_test  = real_reviews_all[100000:]
+        # real_reviews_all = load_reviews('data/real_beer_reviews.txt', seq_length)
+        real_reviews_all = load_reviews('data/real_beer_reviews_test.txt', seq_length)
+        
+        # real_reviews_train = real_reviews_all[:100000]
+        # real_reviews_test  = real_reviews_all[100000:]
 
         with open(args.log, 'w') as fp:
             print >> fp, 'Alternating GAN for ',num_epoch,' epochs.'
@@ -259,8 +261,9 @@ if __name__ == "__main__":
                 print 'Percent correct for real: %f and for fake: %f' % (r, f)
 
             logging.debug('Training discriminator...')
-            last_review  = np.random.randint(num_reviews, len(real_reviews_train))
-            real_reviews = real_reviews_train[last_review : last_review + num_reviews]
+            # last_review  = np.random.randint(num_reviews, len(real_reviews_train))
+            # real_reviews = real_reviews_train[last_review : last_review + num_reviews]
+            real_reviews = real_reviews_all
             train_discriminator(dis_iter, dis_lr, real_reviews)
 
             logging.debug('Training generator...')
