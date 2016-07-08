@@ -1,7 +1,7 @@
-*.pyc
-data/*
-dataset/*
-models/*
-.theano/*
-loss/*
-log.txt
+deepx/*.pyc
+deepx/data/*
+deepx/dataset/*
+deepx/models/*
+deepx/.theano/*
+deepx/loss/*
+deepx/log.txt

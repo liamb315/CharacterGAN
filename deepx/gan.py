@@ -26,7 +26,7 @@ logger.setLevel(logging.DEBUG)
 def parse_args():
     argparser = ArgumentParser()
     argparser.add_argument('--sequence_length', default=200)
-    argparser.add_argument('--batch_size', default=100)
+    argparser.add_argument('--batch_size', default=100, type=int)
     argparser.add_argument('--dropout_rate', default=0.5, type=float)
     argparser.add_argument('--save_model_every', default=100, type=int)
     argparser.add_argument('--log', default='loss/gan/gan_adversarial_log_current.txt')
@@ -204,8 +204,7 @@ if __name__ == "__main__":
         avg_loss = []
         with open(args.log, 'a+') as fp:
             for i in xrange(max_iterations):
-                # idx  = np.random.permutation(xrange(batches.shape[1]))[:args.batch_size]
-                idx = 0
+                idx  = np.random.permutation(xrange(batches.shape[1]))[:args.batch_size]
                 X, y = batches[:,idx], targets[:, idx]
                 loss = adam_D.train(X, y, step_size)
                 
@@ -247,7 +246,7 @@ if __name__ == "__main__":
 
         logging.debug('Loading real reviews...')
         # real_reviews_all = load_reviews('data/real_beer_reviews.txt', seq_length)
-        real_reviews_all = load_reviews('data/real_beer_reviews_test.txt', seq_length)
+        real_reviews_all = load_reviews('data/real_beer_reviews_test2.txt', seq_length)
         
         # real_reviews_train = real_reviews_all[:100000]
         # real_reviews_test  = real_reviews_all[100000:]
