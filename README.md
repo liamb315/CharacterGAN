@@ -1,2 +1,2 @@
 # Character-Level Generative Adversarial Network
-Generalizing the [Generative Adversarial Networks](http://arxiv.org/abs/1406.2661) introduced by I. Goodfellow et al. into a natural language formulation.  This code is built off [DeepX](https://github.com/sharadmv/deepx). 
+Generalizing the [Generative Adversarial Networks](http://arxiv.org/abs/1406.2661) introduced by I. Goodfellow et al. into a natural language formulation.  This research was initially powered by [DeepX](https://github.com/sharadmv/deepx) but more recent work is using [Tensorflow](http://www.tensorflow.org).

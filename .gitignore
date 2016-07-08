@@ -14,3 +14,4 @@ tensorflow/models_generator
 tensorflow/models_GAN
 tensorflow/old
 tensorflow/vocab
+tensorflow/*.pyc
