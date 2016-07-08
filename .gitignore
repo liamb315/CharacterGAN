@@ -5,3 +5,11 @@ deepx/models/*
 deepx/.theano/*
 deepx/loss/*
 deepx/log.txt
+tensorflow/loss
+tensorflow/logs
+tensorflow/data
+tensorflow/models
+tensorflow/models_discriminator
+tensorflow/models_generator
+tensorflow/old
+tensorflow/vocab
