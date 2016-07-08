@@ -11,5 +11,6 @@ tensorflow/data
 tensorflow/models
 tensorflow/models_discriminator
 tensorflow/models_generator
+tensorflow/models_GAN
 tensorflow/old
 tensorflow/vocab
