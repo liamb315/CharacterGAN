@@ -60,7 +60,8 @@ class GAN(object):
 				
 				with tf.device('/cpu:0'):
 					embedding  = tf.get_variable('embedding', [args.vocab_size, args.rnn_size])
-					inputs_gen = tf.split(1, seq_length, tf.nn.embedding_lookup(embedding, self.input_data))
+					inputs_gen = tf.split(1, seq_length, tf.nn.embedding_lookup(
+						embedding, self.input_data))
 					inputs_gen = [tf.squeeze(i, [1]) for i in inputs_gen]
 
 			outputs_gen, last_state_gen = seq2seq.rnn_decoder(inputs_gen, self.initial_state_gen, 
@@ -90,8 +91,8 @@ class GAN(object):
 					inputs_dis.append(tf.matmul(logit, embedding))
 					# inputs_dis.append(tf.matmul(tf.nn.softmax(logit), embedding))
 					
-				outputs_dis, last_state_dis = seq2seq.rnn_decoder(inputs_dis, self.initial_state_dis, 
-					self.cell_dis, loop_function=None)
+				outputs_dis, last_state_dis = seq2seq.rnn_decoder(inputs_dis,
+					self.initial_state_dis, self.cell_dis, loop_function=None)
 
 			probs, logits = [], []
 			for output_dis in outputs_dis:
@@ -127,9 +128,8 @@ class GAN(object):
 				self.all_grads       = tf.gradients(self.gen_cost, self.tvars)
 				gen_grads_clipped, _ = tf.clip_by_global_norm(gen_grads, args.grad_clip)
 				gen_optimizer        = tf.train.AdamOptimizer(self.lr_gen)
-				# gen_optimizer        = tf.train.GradientDescentOptimizer(self.lr_gen)
-				self.gen_train_op    = gen_optimizer.apply_gradients(zip(gen_grads_clipped, gen_vars))				
-
+				self.gen_train_op    = gen_optimizer.apply_gradients(
+											zip(gen_grads_clipped, gen_vars))				
 
 		with tf.name_scope('summary'):
 			with tf.name_scope('weight_summary'):
@@ -143,7 +143,9 @@ class GAN(object):
 		self.merged = tf.merge_all_summaries()
 
 		
-	def generate_samples(self, sess, args, chars, vocab, seq_length = 200, initial = ' ', datafile = 'data/gan/fake_reviews.txt'):
+	def generate_samples(self, sess, args, chars, vocab, seq_length = 200, 
+						 initial = ' ', 
+						 datafile = 'data/gan/fake_reviews.txt'):
 		''' Generate a batch of reviews'''		
 		state = self.cell_gen.zero_state(args.batch_size, tf.float32).eval()
 
@@ -157,8 +159,9 @@ class GAN(object):
 				x[i,0] = vocab[char]    
 			feed = {self.input_data: x, self.initial_state_gen: state} 
 			sample_op = Categorical(self.logits_sequence[0])
-			[sample_indexes, state] = sess.run([sample_op.sample(n = 1), self.final_state_gen], feed)
-			char_arr = [chars[i] for i in sample_indexes[0]]
+			[sample_indexes, state] = sess.run(
+				[sample_op.sample(n = 1), self.final_state_gen], feed)
+			char_arr = [chars[i] for i in tf.squeeze(sample_indexes)]
 			for i, char in enumerate(char_arr):
 				sequence_matrix[i].append(char)
 
