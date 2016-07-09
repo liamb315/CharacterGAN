@@ -64,13 +64,37 @@ class GAN(object):
 						embedding, self.input_data))
 					inputs_gen = [tf.squeeze(i, [1]) for i in inputs_gen]
 
+			# Prior method to generate outputs
 			outputs_gen, last_state_gen = seq2seq.rnn_decoder(inputs_gen, self.initial_state_gen, 
 				self.cell_gen, loop_function=None)
 			
+			# New method to generate outputs
+			# state_gen = self.initial_state_gen
+
+			# for i, inp in enumerate(inputs_gen):
+			# 	if i > 0:
+			# 		tf.get_variable_scope().reuse_variables()
+			# 	output_gen, state_gen = self.cell_gen(inp, state_gen)
+			# 	outputs_gen.append(output_gen)
+			# last_state_gen = state_gen
+
+			# Full logits sequence
 			self.logits_sequence = []
-			for output_gen in outputs_gen:
+			# Only the specific *logit* that was sampled
+			self.logit_sequence  = [] 
+			for i, output_gen in enumerate(outputs_gen):
 				logits_gen  = tf.nn.xw_plus_b(output_gen, softmax_w, softmax_b)
 				self.logits_sequence.append(logits_gen)
+
+				# Indices of logits for batch
+				data_indices = tf.slice(self.input_data, 
+					                    begin = [0,i], 
+					                    size = [args.batch_size, 1])
+
+				# logit_vals = tf.squeeze(tf.gather(logits_gen, index = data_indices))
+				one_hot = tf.one_hot(data_indices, depth = args.vocab_size)
+				one_hot = tf.squeeze(one_hot)
+				self.logit_sequence.append(one_hot)
 
 			self.final_state_gen = last_state_gen
 
@@ -87,9 +111,9 @@ class GAN(object):
 
 				inputs_dis = []
 				embedding  = tf.get_variable('embedding', [args.vocab_size, args.rnn_size])
-				for logit in self.logits_sequence:
+				# for logit in self.logits_sequence:
+				for logit in self.logit_sequence:
 					inputs_dis.append(tf.matmul(logit, embedding))
-					# inputs_dis.append(tf.matmul(tf.nn.softmax(logit), embedding))
 					
 				outputs_dis, last_state_dis = seq2seq.rnn_decoder(inputs_dis,
 					self.initial_state_dis, self.cell_dis, loop_function=None)
