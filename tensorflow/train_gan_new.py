@@ -115,7 +115,7 @@ def train_generator(gan, args, sess, train_writer, weights_load = 'random'):
 		state_gen = gan.initial_state_gen.eval()
 		state_dis = gan.initial_state_dis.eval()
 
-		for batch in xrange(25):
+		for batch in xrange(50):
 		# for batch in xrange(batcher.num_batches):
 			start = time.time()
 			x, _  = batcher.next_batch()
@@ -253,7 +253,7 @@ if __name__=='__main__':
 	gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.05)
 
 	with tf.Session(config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=True, gpu_options=gpu_options)) as sess:
-
+		tf.set_random_seed(1)
 		logging.debug('Creating models...')
 		gan = GAN(args, is_training = True)
 		with tf.variable_scope('classic'):
@@ -267,7 +267,7 @@ if __name__=='__main__':
 		logging.debug('Initializing variables in graph...')
 		tf.initialize_all_variables().run()
 
-		adversarial_training(gan, discriminator, generator, train_writer, args, sess)
-		# train_generator(gan, args, sess, train_writer, weights_load = 'random')
+		# adversarial_training(gan, discriminator, generator, train_writer, args, sess)
+		train_generator(gan, args, sess, train_writer, weights_load = 'random')
 		# generate_samples(generator, args, sess, 50)
 		# train_discriminator(discriminator, args, sess)

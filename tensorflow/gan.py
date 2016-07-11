@@ -80,7 +80,6 @@ class GAN(object):
 
 			# Full logits sequence
 			self.logits_sequence = []
-			# Only the specific *logit* that was sampled
 			self.logit_sequence  = [] 
 			for i, output_gen in enumerate(outputs_gen):
 				logits_gen  = tf.nn.xw_plus_b(output_gen, softmax_w, softmax_b)
@@ -90,11 +89,38 @@ class GAN(object):
 				data_indices = tf.slice(self.input_data, 
 					                    begin = [0,i], 
 					                    size = [args.batch_size, 1])
+				data_indices = tf.squeeze(data_indices)
 
-				# logit_vals = tf.squeeze(tf.gather(logits_gen, index = data_indices))
-				one_hot = tf.one_hot(data_indices, depth = args.vocab_size)
-				one_hot = tf.squeeze(one_hot)
-				self.logit_sequence.append(one_hot)
+				logit_batch = []
+				for j in xrange(args.batch_size):
+					index = tf.slice(data_indices, begin = [j], size = [1])
+					# Check 1 (Pass)
+					# cond = [True] * args.vocab_size
+					# Check 2 (Pass)
+					# cond = [True, False, False, False, False]
+					# Check 3 (Fail)
+					# cond = [True if k == index else False 
+							# for k in xrange(args.vocab_size)]
+					# print cond
+					# batch_cond.append(cond)
+					
+					logit_val = tf.gather(logits_gen, data_indices)
+					# Check 1 (Fail - No grad)
+					# logit_vec = tf.one_hot(index, args.vocab_size, on_value = logit_val)
+					# Check 2 (Fail - no grad)
+					# logit_vec = tf.one_hot(0, args.vocab_size, logit_val)
+					
+
+					logit_batch.append(logit_vec)
+
+
+				res = tf.pack(logit_batch)
+				res = tf.squeeze(res)
+				# cond  = tf.constant(batch_cond)
+				# zeros = tf.zeros(shape=[args.batch_size, args.vocab_size])
+				# res   = tf.select(cond, logits_gen, zeros)
+				
+				self.logit_sequence.append(res)
 
 			self.final_state_gen = last_state_gen
 
