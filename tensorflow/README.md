@@ -9,7 +9,7 @@ TensorFlow master branch required (using new distributions not within latest 0.9
 To begin training the NLP GAN, run
 
 ```
-python train_gan_new.py
+python train_gan.py
 ```
 
 Further description of the directory structure and code will be added soon.
