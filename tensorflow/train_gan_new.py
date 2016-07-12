@@ -267,7 +267,7 @@ if __name__=='__main__':
 		logging.debug('Initializing variables in graph...')
 		tf.initialize_all_variables().run()
 
-		adversarial_training(gan, discriminator, generator, train_writer, args, sess)
+		# adversarial_training(gan, discriminator, generator, train_writer, args, sess)
 		# train_generator(gan, args, sess, train_writer, weights_load = 'random')
-		# generate_samples(generator, args, sess, 50)
+		generate_samples(generator, args, sess, 50)
 		# train_discriminator(discriminator, args, sess)

@@ -177,15 +177,16 @@ class GAN(object):
 		for i in xrange(args.batch_size):
 			sequence_matrix.append([])
 		char_arr = args.batch_size * [initial]
+		
 		for n in xrange(seq_length):
 			x = np.zeros((args.batch_size, 1))
 			for i, char in enumerate(char_arr):
 				x[i,0] = vocab[char]    
 			feed = {self.input_data: x, self.initial_state_gen: state} 
-			sample_op = Categorical(self.logits_sequence[0])
+			sample_op = Categorical(tf.squeeze(self.logits_sequence))
 			[sample_indexes, state] = sess.run(
 				[sample_op.sample(n = 1), self.final_state_gen], feed)
-			char_arr = [chars[i] for i in tf.squeeze(sample_indexes)]
+			char_arr = [chars[i] for i in sample_indexes[0]]
 			for i, char in enumerate(char_arr):
 				sequence_matrix[i].append(char)
 
