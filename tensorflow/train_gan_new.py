@@ -55,7 +55,7 @@ def parse_args():
 		help='save frequency')
 	parser.add_argument('--grad_clip', type=float, default=5.,
 		help='clip gradients at this value')
-	parser.add_argument('--learning_rate_gen', type=float, default=0.0001,
+	parser.add_argument('--learning_rate_gen', type=float, default=0.005,
 		help='learning rate')
 	parser.add_argument('--learning_rate_dis', type=float, default=0.0002,
 		help='learning rate for discriminator')
@@ -267,7 +267,7 @@ if __name__=='__main__':
 		logging.debug('Initializing variables in graph...')
 		tf.initialize_all_variables().run()
 
-		# adversarial_training(gan, discriminator, generator, train_writer, args, sess)
-		train_generator(gan, args, sess, train_writer, weights_load = 'random')
+		adversarial_training(gan, discriminator, generator, train_writer, args, sess)
+		# train_generator(gan, args, sess, train_writer, weights_load = 'random')
 		# generate_samples(generator, args, sess, 50)
 		# train_discriminator(discriminator, args, sess)
