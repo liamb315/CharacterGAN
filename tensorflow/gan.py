@@ -167,32 +167,30 @@ class GAN(object):
 		self.merged = tf.merge_all_summaries()
 
 		
-	def generate_samples(self, sess, args, chars, vocab, seq_length = 200, 
+	def generate_samples(self, sess, num_batches, args, chars, vocab, seq_length = 200, 
 						 initial = ' ', 
 						 datafile = 'data/gan/fake_reviews.txt'):
 		''' Generate a batch of reviews'''		
 		state = self.cell_gen.zero_state(args.batch_size, tf.float32).eval()
 
-		sequence_matrix = []
-		for i in xrange(args.batch_size):
-			sequence_matrix.append([])
-		char_arr = args.batch_size * [initial]
-		
-		for n in xrange(seq_length):
-			x = np.zeros((args.batch_size, 1))
-			for i, char in enumerate(char_arr):
-				x[i,0] = vocab[char]    
-			feed = {self.input_data: x, self.initial_state_gen: state} 
-			sample_op = Categorical(tf.squeeze(self.logits_sequence))
-			[sample_indexes, state] = sess.run(
-				[sample_op.sample(n = 1), self.final_state_gen], feed)
-			char_arr = [chars[i] for i in sample_indexes[0]]
-			for i, char in enumerate(char_arr):
-				sequence_matrix[i].append(char)
+		for n in xrange(num_batches):
+			sequence_matrix = []
+			for i in xrange(args.batch_size):
+				sequence_matrix.append([])
+			char_arr = args.batch_size * [initial]
+			
+			for n in xrange(seq_length):
+				x = np.zeros((args.batch_size, 1))
+				for i, char in enumerate(char_arr):
+					x[i,0] = vocab[char]    
+				feed = {self.input_data: x, self.initial_state_gen: state} 
+				sample_op = Categorical(tf.squeeze(self.logits_sequence))
+				[sample_indexes, state] = sess.run(
+					[sample_op.sample(n = 1), self.final_state_gen], feed)
+				char_arr = [chars[i] for i in sample_indexes[0]]
+				for i, char in enumerate(char_arr):
+					sequence_matrix[i].append(char)
 
-		with open(datafile, 'a+') as f:
-			for line in sequence_matrix:
-				print ''.join(line)
-				print>>f, ''.join(line) 
-
-		return sequence_matrix
+			with open(datafile, 'a+') as f:
+				for line in sequence_matrix:
+					print>>f, ''.join(line) 

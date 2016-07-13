@@ -206,46 +206,72 @@ def train_discriminator(discriminator, args, sess):
 				print 'Discriminator model saved to {}'.format(checkpoint_path)
 
 			
-def generate_samples(generator, args, sess, num_samples=500):
-	'''Generate samples from the current version of the GAN'''
-	samples = []
+def generate_samples(generator, args, sess, num_samples=500, weights_load = 'random'):
+	'''Generate samples from the current version of the GAN
 
+	Args:
+		generator: 
+		args:
+		sess:
+		num_samples:
+		weights_load:  
+	'''
+	samples = []
 	with open(os.path.join(args.save_dir_GAN, 'config.pkl')) as f:
 		saved_args = cPickle.load(f)
 	with open(os.path.join(args.save_dir_GAN, args.vocab_file)) as f:
 		chars, vocab = cPickle.load(f)
 	
-	logging.debug('Loading GAN parameters to Generator...')
-	gen_vars = [v for v in tf.all_variables() if v.name.startswith('sampler/')]
-	gen_dict = {}
-	for v in gen_vars:
-		# Key:    op.name in GAN Checkpoint file
-		# Value:  Local generator Variable 
-		gen_dict[v.op.name.replace('sampler/','')] = v
-	gen_saver = tf.train.Saver(gen_dict)
-	ckpt = tf.train.get_checkpoint_state(args.save_dir_GAN)
-	if ckpt and ckpt.model_checkpoint_path:
-		gen_saver.restore(sess, ckpt.model_checkpoint_path)
+	if weights_load == 'random':
+		logging.debug('Loading random parameters to Generator...')
+	elif weights_load == 'GAN':
+		logging.debug('Loading GAN parameters to Generator...')
+		gen_vars = [v for v in tf.all_variables() if v.name.startswith('sampler/')]
+		gen_dict = {}
+		for v in gen_vars:
+			# Key:    op.name in GAN Checkpoint file
+			# Value:  Local generator Variable 
+			gen_dict[v.op.name.replace('sampler/','')] = v
+		gen_saver = tf.train.Saver(gen_dict)
+		ckpt = tf.train.get_checkpoint_state(args.save_dir_GAN)
+		if ckpt and ckpt.model_checkpoint_path:
+			gen_saver.restore(sess, ckpt.model_checkpoint_path)
+	else:
+		raise ValueError('Cannot restore parameters from: {}'.format(weights_load))
+
+	assert num_samples / args.batch_size > 0, 'Generating only %d samples for'\
+					' a batch_size of %d.' % (num_samples, saved_args.batch_size)
+	num_batches = num_samples / saved_args.batch_size
+
+	return generator.generate_samples(sess, num_batches, saved_args, chars, 
+												   vocab, args.n)
+
 	
-	for _ in xrange(num_samples / args.batch_size):
-		samples.append(generator.generate_samples(sess, saved_args, chars, vocab, args.n))
-	return samples
+	# for _ in xrange(num_samples / args.batch_size):
+	# 	samples.append(generator.generate_samples(sess, saved_args, chars, 
+	# 											   vocab, args.n))
+	# return samples
 
 
 def reset_reviews(data_dir, file_name):
+	'''Clear the file containing the generated reviews.
+	Args:
+		data_dir:  Directory to store generated reviews.
+		file_name:  Name of file containing generated reviews.
+	'''
 	open(os.path.join(data_dir, file_name), 'w').close()
 
 
 def adversarial_training(gan, discriminator, generator, train_writer, args, sess):
 	'''Adversarial Training'''
 	train_generator(gan, args, sess, train_writer, weights_load = 'random')
-	generate_samples(generator, args, sess, 200)
+	generate_samples(generator, args, sess, 200, init = True)
 
 	for epoch in xrange(args.num_epochs_GAN):
 		train_discriminator(discriminator, args, sess)
 		train_generator(gan, args, sess, train_writer, weights_load = 'discriminator')
 		reset_reviews(args.data_dir, args.fake_input_file)
-		generate_samples(generator, args, sess, 200)
+		generate_samples(generator, args, sess, 200, weights_load='GAN')
 
 
 if __name__=='__main__':
@@ -267,7 +293,8 @@ if __name__=='__main__':
 		logging.debug('Initializing variables in graph...')
 		tf.initialize_all_variables().run()
 
-		adversarial_training(gan, discriminator, generator, train_writer, args, sess)
+		reset_reviews(args.data_dir, args.fake_input_file)
+		# adversarial_training(gan, discriminator, generator, train_writer, args, sess)
 		# train_generator(gan, args, sess, train_writer, weights_load = 'random')
-		# generate_samples(generator, args, sess, 50)
+		generate_samples(generator, args, sess, num_samples = 20, 'random')
 		# train_discriminator(discriminator, args, sess)
