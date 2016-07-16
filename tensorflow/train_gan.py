@@ -296,5 +296,5 @@ if __name__=='__main__':
 		reset_reviews(args.data_dir, args.fake_input_file)
 		# adversarial_training(gan, discriminator, generator, train_writer, args, sess)
 		# train_generator(gan, args, sess, train_writer, weights_load = 'random')
-		generate_samples(generator, args, sess, num_samples = 20, 'random')
+		generate_samples(generator, args, sess, num_samples = 20, weights_load='random')
 		# train_discriminator(discriminator, args, sess)

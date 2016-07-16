@@ -194,3 +194,11 @@ class GAN(object):
 			with open(datafile, 'a+') as f:
 				for line in sequence_matrix:
 					print>>f, ''.join(line) 
+
+	# def generate_fast(self, sess, num_batches, args, chars, vocab, seq_length = 200,
+	# 				  initial = '',
+	# 				  datafile = 'data/gan/fake_reviews.txt'):
+	# 	state = self.cell_gen.zero_state(args.batch_size, tf.float32)	
+
+	# 	for i in xrange(seq_length):
+	# 		
