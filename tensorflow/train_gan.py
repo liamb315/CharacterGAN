@@ -181,7 +181,7 @@ def train_discriminator(discriminator, args, sess):
 		batcher.reset_batch_pointer()
 		state = discriminator.initial_state.eval()
 
-		for batch in xrange(10):
+		for batch in xrange(200):
 		# for batch in xrange(batcher.num_batches):
 			start = time.time()
 			x, y  = batcher.next_batch()
@@ -281,11 +281,11 @@ if __name__=='__main__':
 	with tf.Session(config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=True, gpu_options=gpu_options)) as sess:
 		tf.set_random_seed(1)
 		logging.debug('Creating models...')
-		gan = GAN(args, is_training = True)
+		# gan = GAN(args, is_training = True)
 		with tf.variable_scope('classic'):
 			discriminator = Discriminator(args, is_training = True)
-		with tf.variable_scope('sampler'):
-			generator = GAN(args, is_training = False)
+		# with tf.variable_scope('sampler'):
+		# 	generator = GAN(args, is_training = False)
 
 		logging.debug('TensorBoard...')
 		train_writer = tf.train.SummaryWriter(args.log_dir, sess.graph)
@@ -293,8 +293,8 @@ if __name__=='__main__':
 		logging.debug('Initializing variables in graph...')
 		tf.initialize_all_variables().run()
 
-		reset_reviews(args.data_dir, args.fake_input_file)
+		# reset_reviews(args.data_dir, args.fake_input_file)
 		# adversarial_training(gan, discriminator, generator, train_writer, args, sess)
 		# train_generator(gan, args, sess, train_writer, weights_load = 'random')
-		generate_samples(generator, args, sess, num_samples = 20, weights_load='random')
-		# train_discriminator(discriminator, args, sess)
+		# generate_samples(generator, args, sess, num_samples = 1000, weights_load='random')
+		train_discriminator(discriminator, args, sess)
