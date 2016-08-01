@@ -4,7 +4,8 @@ import logging
 from tensorflow.models.rnn import *
 from argparse import ArgumentParser
 from batcher_gan import DiscriminatorBatcher, GANBatcher
-from gan import GAN
+# from gan import GAN
+from gan_categorical import GAN
 from discriminator import Discriminator
 from generator import Generator
 import time
@@ -247,10 +248,6 @@ def generate_samples(generator, args, sess, num_samples=500, weights_load = 'ran
 												   vocab, args.n)
 
 	
-	# for _ in xrange(num_samples / args.batch_size):
-	# 	samples.append(generator.generate_samples(sess, saved_args, chars, 
-	# 											   vocab, args.n))
-	# return samples
 
 
 def reset_reviews(data_dir, file_name):
@@ -276,25 +273,26 @@ def adversarial_training(gan, discriminator, generator, train_writer, args, sess
 
 if __name__=='__main__':
 	args = parse_args()
-	gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.05)
+	gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.20)
 
 	with tf.Session(config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=True, gpu_options=gpu_options)) as sess:
 		tf.set_random_seed(1)
 		logging.debug('Creating models...')
-		# gan = GAN(args, is_training = True)
-		with tf.variable_scope('classic'):
-			discriminator = Discriminator(args, is_training = True)
-		# with tf.variable_scope('sampler'):
+		gan = GAN(args)
+		# with tf.variable_scope('classic'):
+		# 	discriminator = Discriminator(args, is_training = True)
+		# # with tf.variable_scope('sampler'):
 		# 	generator = GAN(args, is_training = False)
 
-		logging.debug('TensorBoard...')
-		train_writer = tf.train.SummaryWriter(args.log_dir, sess.graph)
+		# logging.debug('TensorBoard...')
+		# train_writer = tf.train.SummaryWriter(args.log_dir, sess.graph)
 
-		logging.debug('Initializing variables in graph...')
-		tf.initialize_all_variables().run()
+		# logging.debug('Initializing variables in graph...')
+		init_op = tf.initialize_all_variables()
+		sess.run(init_op)
 
 		# reset_reviews(args.data_dir, args.fake_input_file)
 		# adversarial_training(gan, discriminator, generator, train_writer, args, sess)
 		# train_generator(gan, args, sess, train_writer, weights_load = 'random')
 		# generate_samples(generator, args, sess, num_samples = 1000, weights_load='random')
-		train_discriminator(discriminator, args, sess)
+		# train_discriminator(discriminator, args, sess)

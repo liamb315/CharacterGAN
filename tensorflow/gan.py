@@ -19,6 +19,8 @@ def variable_summaries(var, name):
 	tf.scalar_summary('max/' + name, tf.reduce_max(var))
 	tf.scalar_summary('min/' + name, tf.reduce_min(var))
 	tf.histogram_summary(name, var)
+
+
 	
 class GAN(object):
 	def __init__(self, args, is_training=True):
@@ -195,10 +197,4 @@ class GAN(object):
 				for line in sequence_matrix:
 					print>>f, ''.join(line) 
 
-	# def generate_fast(self, sess, num_batches, args, chars, vocab, seq_length = 200,
-	# 				  initial = '',
-	# 				  datafile = 'data/gan/fake_reviews.txt'):
-	# 	state = self.cell_gen.zero_state(args.batch_size, tf.float32)	
-
-	# 	for i in xrange(seq_length):
-	# 		
+	
