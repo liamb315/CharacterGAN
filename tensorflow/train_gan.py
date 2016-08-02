@@ -4,7 +4,6 @@ import logging
 from tensorflow.models.rnn import *
 from argparse import ArgumentParser
 from batcher_gan import DiscriminatorBatcher, GANBatcher
-# from gan import GAN
 from gan_categorical import GAN
 from discriminator import Discriminator
 from generator import Generator
@@ -56,7 +55,7 @@ def parse_args():
 		help='save frequency')
 	parser.add_argument('--grad_clip', type=float, default=5.,
 		help='clip gradients at this value')
-	parser.add_argument('--learning_rate_gen', type=float, default=0.005,
+	parser.add_argument('--learning_rate_gen', type=float, default=0.05,
 		help='learning rate')
 	parser.add_argument('--learning_rate_dis', type=float, default=0.0002,
 		help='learning rate for discriminator')
@@ -70,7 +69,7 @@ def parse_args():
 
 
 def train_generator(gan, args, sess, train_writer, weights_load = 'random'):
-	'''Train Generator via GAN'''
+	'''Train Generator via GAN.'''
 	logging.debug('Training generator...')
 
 	batcher  = GANBatcher(args.fake_input_file, args.vocab_file, 
@@ -86,28 +85,31 @@ def train_generator(gan, args, sess, train_writer, weights_load = 'random'):
 
 	# Save all GAN variables to gan_saver
 	gan_vars = [v for v in tf.all_variables() if not 
-					(v.name.startswith('classic/') or v.name.startswith('sampler/') )]
+					(v.name.startswith('classic/'))]
 	gan_saver = tf.train.Saver(gan_vars)
 
-	# Retrieve trainable Discriminator variables from dis_saver
-	# TODO:  Trainable vs. All Variables?
-	dis_vars = [v for v in tf.trainable_variables() if v.name.startswith('discriminator/')]
-	dis_saver = tf.train.Saver(dis_vars)
 
 	if weights_load is 'random':
-		logging.debug('Random GAN parameters')
+		print('Random GAN parameters')
+
 	elif weights_load is 'gan':
-		logging.debug('Initial load of GAN parameters...')
+		print('Initial load of GAN parameters from %s' % args.save_dir_GAN)		
 		ckpt = tf.train.get_checkpoint_state(args.save_dir_GAN)
 		if ckpt and ckpt.model_checkpoint_path:
 			gan_saver.restore(sess, ckpt.model_checkpoint_path)
+
 	elif weights_load is 'discriminator':
-		logging.debug('Update GAN parameters from Discriminator...')		
+		print('Update GAN parameters from Discriminator of %s' % args.save_dir_dis)		
+		# TODO:  Trainable vs. All Variables?
+		dis_vars = [v for v in tf.trainable_variables() if 
+					v.name.startswith('discriminator/')]
+		dis_saver = tf.train.Saver(dis_vars)
 		ckpt = tf.train.get_checkpoint_state(args.save_dir_dis)
 		if ckpt and ckpt.model_checkpoint_path:
 			dis_saver.restore(sess, ckpt.model_checkpoint_path)
+
 	else:
-		raise Exception('Invalid weight initialization for GAN')
+		raise Exception('Invalid weight initialization for GAN: %s' % weights_load)
 
 	for epoch in xrange(args.num_epochs_gen):
 		new_lr = args.learning_rate_gen * (args.decay_rate ** epoch)
@@ -116,17 +118,12 @@ def train_generator(gan, args, sess, train_writer, weights_load = 'random'):
 		state_gen = gan.initial_state_gen.eval()
 		state_dis = gan.initial_state_dis.eval()
 
-		for batch in xrange(50):
-		# for batch in xrange(batcher.num_batches):
+		# for batch in xrange(50):
+		for batch in xrange(batcher.num_batches):
 			start = time.time()
-			x, _  = batcher.next_batch()
-			y     = np.ones(x.shape)
-			feed  = {gan.input_data: x, 
-					gan.targets: y, 
-					gan.initial_state_gen: state_gen, 
+			feed  = {gan.initial_state_gen: state_gen, 
 					gan.initial_state_dis: state_dis}
-			# feed  = {gan.input_data: x, 
-					# gan.targets: y}		
+	
 			gen_train_loss, gen_summary, state_gen, state_dis, _ = sess.run([
 				gan.gen_cost, 
 				gan.merged,
@@ -207,49 +204,64 @@ def train_discriminator(discriminator, args, sess):
 				print 'Discriminator model saved to {}'.format(checkpoint_path)
 
 			
-def generate_samples(generator, args, sess, num_samples=500, weights_load = 'random'):
-	'''Generate samples from the current version of the GAN
+# def generate_samples(generator, args, sess, num_samples=500, weights_load = 'random'):
+# 	'''Generate samples from the current version of the GAN
 
-	Args:
-		generator: 
-		args:
-		sess:
-		num_samples:
-		weights_load:  
-	'''
-	samples = []
-	with open(os.path.join(args.save_dir_GAN, 'config.pkl')) as f:
-		saved_args = cPickle.load(f)
+# 	Args:
+# 		generator: 
+# 		args:
+# 		sess:
+# 		num_samples:
+# 		weights_load:  
+# 	'''
+# 	samples = []
+# 	with open(os.path.join(args.save_dir_GAN, 'config.pkl')) as f:
+# 		saved_args = cPickle.load(f)
+# 	with open(os.path.join(args.save_dir_GAN, args.vocab_file)) as f:
+# 		chars, vocab = cPickle.load(f)
+	
+# 	if weights_load == 'random':
+# 		logging.debug('Loading random parameters to Generator...')
+# 	elif weights_load == 'GAN':
+# 		logging.debug('Loading GAN parameters to Generator...')
+# 		gen_vars = [v for v in tf.all_variables() if v.name.startswith('sampler/')]
+# 		gen_dict = {}
+# 		for v in gen_vars:
+# 			# Key:    op.name in GAN Checkpoint file
+# 			# Value:  Local generator Variable 
+# 			gen_dict[v.op.name.replace('sampler/','')] = v
+# 		gen_saver = tf.train.Saver(gen_dict)
+# 		ckpt = tf.train.get_checkpoint_state(args.save_dir_GAN)
+# 		if ckpt and ckpt.model_checkpoint_path:
+# 			gen_saver.restore(sess, ckpt.model_checkpoint_path)
+# 	else:
+# 		raise ValueError('Cannot restore parameters from: {}'.format(weights_load))
+
+# 	assert num_samples / args.batch_size > 0, 'Generating only %d samples for'\
+# 					' a batch_size of %d.' % (num_samples, saved_args.batch_size)
+# 	num_batches = num_samples / saved_args.batch_size
+
+# 	return generator.generate_samples(sess, num_batches, saved_args, chars, 
+# 												   vocab, args.n)
+
+
+def generate_samples(sess, gan, args):
+	'''Generate samples.'''
 	with open(os.path.join(args.save_dir_GAN, args.vocab_file)) as f:
 		chars, vocab = cPickle.load(f)
-	
-	if weights_load == 'random':
-		logging.debug('Loading random parameters to Generator...')
-	elif weights_load == 'GAN':
-		logging.debug('Loading GAN parameters to Generator...')
-		gen_vars = [v for v in tf.all_variables() if v.name.startswith('sampler/')]
-		gen_dict = {}
-		for v in gen_vars:
-			# Key:    op.name in GAN Checkpoint file
-			# Value:  Local generator Variable 
-			gen_dict[v.op.name.replace('sampler/','')] = v
-		gen_saver = tf.train.Saver(gen_dict)
-		ckpt = tf.train.get_checkpoint_state(args.save_dir_GAN)
-		if ckpt and ckpt.model_checkpoint_path:
-			gen_saver.restore(sess, ckpt.model_checkpoint_path)
-	else:
-		raise ValueError('Cannot restore parameters from: {}'.format(weights_load))
 
-	assert num_samples / args.batch_size > 0, 'Generating only %d samples for'\
-					' a batch_size of %d.' % (num_samples, saved_args.batch_size)
-	num_batches = num_samples / saved_args.batch_size
-
-	return generator.generate_samples(sess, num_batches, saved_args, chars, 
-												   vocab, args.n)
+	data_file = os.path.join(args.data_dir, args.fake_input_file)
+	indices = sess.run(gan.sample_op)
+	int_to_char = lambda x: chars[x]
+	mapfunc = np.vectorize(int_to_char)
+	samples = mapfunc(indices.T)
+	print('Generating samples to %s' % data_file)    
+	with open(data_file, 'a+') as f:
+		for line in samples:
+			print line
+			print>>f, ''.join(line) 
 
 	
-
-
 def reset_reviews(data_dir, file_name):
 	'''Clear the file containing the generated reviews.
 	Args:
@@ -281,11 +293,9 @@ if __name__=='__main__':
 		gan = GAN(args)
 		# with tf.variable_scope('classic'):
 		# 	discriminator = Discriminator(args, is_training = True)
-		# # with tf.variable_scope('sampler'):
-		# 	generator = GAN(args, is_training = False)
 
-		# logging.debug('TensorBoard...')
-		# train_writer = tf.train.SummaryWriter(args.log_dir, sess.graph)
+		logging.debug('TensorBoard...')
+		train_writer = tf.train.SummaryWriter(args.log_dir, sess.graph)
 
 		# logging.debug('Initializing variables in graph...')
 		init_op = tf.initialize_all_variables()
@@ -293,6 +303,7 @@ if __name__=='__main__':
 
 		# reset_reviews(args.data_dir, args.fake_input_file)
 		# adversarial_training(gan, discriminator, generator, train_writer, args, sess)
+		generate_samples(sess, gan, args)
 		# train_generator(gan, args, sess, train_writer, weights_load = 'random')
-		# generate_samples(generator, args, sess, num_samples = 1000, weights_load='random')
+		
 		# train_discriminator(discriminator, args, sess)

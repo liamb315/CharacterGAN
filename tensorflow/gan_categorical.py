@@ -10,6 +10,18 @@ from tensorflow.contrib.distributions import Categorical
 # TODO: Eliminate depencence on seq2seq
 
 
+def variable_summaries(var, name):
+    '''Attach a lot of summaries to a Tensor.'''
+    mean = tf.reduce_mean(var)
+    tf.scalar_summary('mean/' + name, mean)
+    with tf.name_scope('stddev'):
+        stddev = tf.sqrt(tf.reduce_sum(tf.square(var - mean)))
+    tf.scalar_summary('sttdev/' + name, stddev)
+    tf.scalar_summary('max/' + name, tf.reduce_max(var))
+    tf.scalar_summary('min/' + name, tf.reduce_min(var))
+    tf.histogram_summary(name, var)
+
+
 class GAN(object):
     def __init__(self, args):
         if args.model == 'rnn':
@@ -26,20 +38,18 @@ class GAN(object):
                                       .format(args.model))
 
         # TODO: Better initialization.
-        # Initial indices.
         indices = []
-        batch_indices = tf.constant(3, shape=[args.batch_size])
+        batch_indices = tf.fill([args.batch_size], 0)
         
-        # TODO: There is no reason to use a feed here. These should just be 1!
-        # Use a tf.constant once this is working.
-        # Targets for Generator are 1
-        self.targets = tf.placeholder(tf.int32, [args.batch_size, args.seq_length])
-            
+        # Targets for Generator are 1            
+        self.targets = tf.ones([args.batch_size, args.seq_length], dtype=tf.int32)
+        
         # Generator Portion of GAN.
         with tf.variable_scope('generator'):
             outputs_gen, logit_sequence = [], []
             cell_gen = rnn_cell.MultiRNNCell([cell_gen] * args.num_layers)
-            state_gen = cell_gen.zero_state(args.batch_size, tf.float32)
+            self.initial_state_gen = cell_gen.zero_state(args.batch_size, tf.float32)
+            state_gen = self.initial_state_gen
 
             with tf.variable_scope('rnn'):
                 softmax_w = tf.get_variable('softmax_w', [args.rnn_size, args.vocab_size])
@@ -54,8 +64,7 @@ class GAN(object):
                   
                     # RNN.
                     output_gen, state_gen = cell_gen(inp, state_gen)
-                    logits_gen = tf.nn.xw_plus_b(output_gen, softmax_w, 
-                                                 softmax_b)
+                    logits_gen = tf.nn.xw_plus_b(output_gen, softmax_w, softmax_b)
                     
                     # Sampling.
                     sample_op = tf.stop_gradient(Categorical(
@@ -71,13 +80,15 @@ class GAN(object):
                     logit_sequence.append(logit_gen)
                     outputs_gen.append(output_gen)
 
+            self.final_state_gen = state_gen
+            
             # Sampled indices
-            sample_op = tf.pack(indices)
+            self.sample_op = tf.pack(indices)
         
         # Discriminator Portion of GAN. 
         with tf.variable_scope('discriminator'):
             cell_dis = rnn_cell.MultiRNNCell([cell_dis] * args.num_layers)
-            state_dis = cell_dis.zero_state(args.batch_size, tf.float32)
+            self.initial_state_dis = cell_dis.zero_state(args.batch_size, tf.float32)
 
             with tf.variable_scope('rnn'):
                 softmax_w_dis = tf.get_variable('softmax_w', [args.rnn_size, 2])
@@ -91,8 +102,8 @@ class GAN(object):
 
                 # RNN.
                 assert len(inputs_dis) == len(outputs_gen)
-                outputs_dis, last_state_dis = seq2seq.rnn_decoder(inputs_dis,
-                    state_dis, cell_dis, loop_function=None)
+                outputs_dis, self.final_state_dis = seq2seq.rnn_decoder(inputs_dis,
+                    self.initial_state_dis, cell_dis, loop_function=None)
 
                 # Predictions.
                 probs, logits = [], []
@@ -107,14 +118,23 @@ class GAN(object):
                 tf.unpack(tf.transpose(self.targets)), 
                 tf.unpack(tf.transpose(tf.ones_like(self.targets, dtype=tf.float32))))
 
-            gen_cost = tf.reduce_sum(gen_loss) / args.batch_size
-            tf.scalar_summary('training loss', gen_cost)
-            lr_gen = tf.Variable(0.0, trainable = False)
+            self.gen_cost = tf.reduce_sum(gen_loss) / args.batch_size
+            tf.scalar_summary('training loss', self.gen_cost)
+            self.lr_gen = tf.Variable(0.0, trainable = False)
             tvars = tf.trainable_variables()
-            gen_vars = [v for v in tvars if not v.name.startswith("discriminator/")]
-
-            gen_grads            = tf.gradients(gen_cost, gen_vars)
-            all_grads            = tf.gradients(gen_cost, tvars)
+            gen_vars = [v for v in tvars if v.name.startswith("generator")]
+            gen_grads            = tf.gradients(self.gen_cost, gen_vars)
             gen_grads_clipped, _ = tf.clip_by_global_norm(gen_grads, args.grad_clip)
-            gen_optimizer        = tf.train.AdamOptimizer(lr_gen)
-            gen_train_op         = gen_optimizer.apply_gradients(zip(gen_grads_clipped, gen_vars))
+            gen_optimizer        = tf.train.AdamOptimizer(self.lr_gen)
+            self.gen_train_op    = gen_optimizer.apply_gradients(zip(gen_grads_clipped, gen_vars))
+
+        with tf.name_scope('summary'):
+            with tf.name_scope('weight_summary'):
+                for v in tvars:
+                    variable_summaries(v, v.op.name)
+            with tf.name_scope('grad_summary'):
+                all_grads = tf.gradients(self.gen_cost, tvars)
+                for var, grad in zip(tvars, all_grads):
+                    variable_summaries(grad, 'grad/' + var.op.name)
+
+        self.merged = tf.merge_all_summaries()
