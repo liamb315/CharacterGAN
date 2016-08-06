@@ -47,7 +47,7 @@ def parse_args():
 		help='prime text')
 	parser.add_argument('--num_epochs_GAN', type=int, default=25,
 		help='number of epochs of GAN')
-	parser.add_argument('--num_epochs_gen', type=int, default=1,
+	parser.add_argument('--num_epochs_gen', type=int, default=25,
 		help='number of epochs to train generator')
 	parser.add_argument('--num_epochs_dis', type=int, default=1,
 		help='number of epochs to train discriminator')
@@ -88,7 +88,6 @@ def train_generator(gan, args, sess, train_writer, weights_load = 'random'):
 					(v.name.startswith('classic/'))]
 	gan_saver = tf.train.Saver(gan_vars)
 
-
 	if weights_load is 'random':
 		print('Random GAN parameters')
 
@@ -114,22 +113,16 @@ def train_generator(gan, args, sess, train_writer, weights_load = 'random'):
 	for epoch in xrange(args.num_epochs_gen):
 		new_lr = args.learning_rate_gen * (args.decay_rate ** epoch)
 		sess.run(tf.assign(gan.lr_gen, new_lr))
-		batcher.reset_batch_pointer()
-		state_gen = gan.initial_state_gen.eval()
-		state_dis = gan.initial_state_dis.eval()
-
-		# for batch in xrange(50):
-		for batch in xrange(batcher.num_batches):
+		
+		for batch in xrange(500):
 			start = time.time()
-			feed  = {gan.initial_state_gen: state_gen, 
-					gan.initial_state_dis: state_dis}
 	
 			gen_train_loss, gen_summary, state_gen, state_dis, _ = sess.run([
 				gan.gen_cost, 
 				gan.merged,
 				gan.final_state_gen,
 				gan.final_state_dis, 
-				gan.gen_train_op], feed)
+				gan.gen_train_op])
 
 			train_writer.add_summary(gen_summary, batch)
 			end   = time.time()
@@ -141,7 +134,8 @@ def train_generator(gan, args, sess, train_writer, weights_load = 'random'):
 			
 			if (epoch * batcher.num_batches + batch) % args.save_every == 0:
 				checkpoint_path = os.path.join(args.save_dir_GAN, 'model.ckpt')
-				gan_saver.save(sess, checkpoint_path, global_step = epoch * batcher.num_batches + batch)
+				gan_saver.save(sess, checkpoint_path, 
+					global_step = epoch * batcher.num_batches + batch)
 				print 'GAN model saved to {}'.format(checkpoint_path)
 
 
@@ -303,7 +297,7 @@ if __name__=='__main__':
 
 		# reset_reviews(args.data_dir, args.fake_input_file)
 		# adversarial_training(gan, discriminator, generator, train_writer, args, sess)
-		generate_samples(sess, gan, args)
-		# train_generator(gan, args, sess, train_writer, weights_load = 'random')
+		# generate_samples(sess, gan, args)
+		train_generator(gan, args, sess, train_writer, weights_load = 'random')
 		
 		# train_discriminator(discriminator, args, sess)

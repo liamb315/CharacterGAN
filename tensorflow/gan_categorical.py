@@ -106,15 +106,15 @@ class GAN(object):
                     self.initial_state_dis, cell_dis, loop_function=None)
 
                 # Predictions.
-                probs, logits = [], []
+                probs_dis, logits_dis = [], []
                 for output_dis in outputs_dis:
-                    logit = tf.nn.xw_plus_b(output_dis, softmax_w_dis, softmax_b_dis)
-                    prob = tf.nn.softmax(logit)
-                    logits.append(logit)
-                    probs.append(prob)
+                    logit_dis = tf.nn.xw_plus_b(output_dis, softmax_w_dis, softmax_b_dis)
+                    prob_dis = tf.nn.softmax(logit_dis)
+                    logits_dis.append(logit_dis)
+                    probs_dis.append(prob_dis)
                     
         with tf.name_scope('train'):
-            gen_loss = seq2seq.sequence_loss_by_example(logits, 
+            gen_loss = seq2seq.sequence_loss_by_example(logits_dis, 
                 tf.unpack(tf.transpose(self.targets)), 
                 tf.unpack(tf.transpose(tf.ones_like(self.targets, dtype=tf.float32))))
 
@@ -135,6 +135,9 @@ class GAN(object):
             with tf.name_scope('grad_summary'):
                 all_grads = tf.gradients(self.gen_cost, tvars)
                 for var, grad in zip(tvars, all_grads):
+                #     print var.op.name
+                #     print grad.op.name
+                #     assert var.get_shape() == grad.get_shape()
                     variable_summaries(grad, 'grad/' + var.op.name)
 
         self.merged = tf.merge_all_summaries()
