@@ -55,7 +55,7 @@ def parse_args():
 		help='save frequency')
 	parser.add_argument('--grad_clip', type=float, default=5.,
 		help='clip gradients at this value')
-	parser.add_argument('--learning_rate_gen', type=float, default=0.05,
+	parser.add_argument('--learning_rate_gen', type=float, default=0.0001,
 		help='learning rate')
 	parser.add_argument('--learning_rate_dis', type=float, default=0.0002,
 		help='learning rate for discriminator')
@@ -282,7 +282,7 @@ if __name__=='__main__':
 	gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.20)
 
 	with tf.Session(config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=True, gpu_options=gpu_options)) as sess:
-		tf.set_random_seed(1)
+		tf.set_random_seed(2)
 		logging.debug('Creating models...')
 		gan = GAN(args)
 		# with tf.variable_scope('classic'):
