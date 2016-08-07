@@ -1,6 +1,6 @@
 (S'e'
-S'r'
 S'b'
+S'r'
 S' '
 S'\n'
 tp1
