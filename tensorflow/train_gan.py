@@ -239,21 +239,22 @@ def train_discriminator(discriminator, args, sess):
 # 												   vocab, args.n)
 
 
-def generate_samples(sess, gan, args):
+def generate_samples(sess, gan, args, num_batches):
 	'''Generate samples.'''
 	with open(os.path.join(args.save_dir_GAN, args.vocab_file)) as f:
 		chars, vocab = cPickle.load(f)
 
 	data_file = os.path.join(args.data_dir, args.fake_input_file)
-	indices = sess.run(gan.sample_op)
-	int_to_char = lambda x: chars[x]
-	mapfunc = np.vectorize(int_to_char)
-	samples = mapfunc(indices.T)
-	print('Generating samples to %s' % data_file)    
-	with open(data_file, 'a+') as f:
-		for line in samples:
-			print line
-			print>>f, ''.join(line) 
+	for _ in xrange(num_batches):
+		indices = sess.run(gan.sample_op)
+		int_to_char = lambda x: chars[x]
+		mapfunc = np.vectorize(int_to_char)
+		samples = mapfunc(indices.T)
+		print('Generating samples to %s' % data_file)    
+		with open(data_file, 'a+') as f:
+			for line in samples:
+				print line
+				print>>f, ''.join(line) 
 
 	
 def reset_reviews(data_dir, file_name):
@@ -297,7 +298,7 @@ if __name__=='__main__':
 
 		# reset_reviews(args.data_dir, args.fake_input_file)
 		# adversarial_training(gan, discriminator, generator, train_writer, args, sess)
-		# generate_samples(sess, gan, args)
-		train_generator(gan, args, sess, train_writer, weights_load = 'random')
+		generate_samples(sess, gan, args, 100)
+		# train_generator(gan, args, sess, train_writer, weights_load = 'random')
 		
 		# train_discriminator(discriminator, args, sess)
