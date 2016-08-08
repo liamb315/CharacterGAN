@@ -4,7 +4,7 @@ import logging
 from tensorflow.models.rnn import *
 from argparse import ArgumentParser
 from batcher_gan import DiscriminatorBatcher, GANBatcher
-from gan_full import GAN
+from gan import GAN
 import time
 import os
 import cPickle
@@ -37,17 +37,17 @@ def parse_args():
 		help='minibatch size')
 	parser.add_argument('--seq_length', type=int, default=30,
 		help='RNN sequence length')
-	parser.add_argument('--num_epochs_GAN', type=int, default=25,
+	parser.add_argument('--num_epochs_GAN', type=int, default=100,
 		help='number of epochs of GAN')
 	parser.add_argument('--num_epochs_gen', type=int, default=1,
 		help='number of epochs to train generator')
 	parser.add_argument('--num_epochs_dis', type=int, default=1,
 		help='number of epochs to train discriminator')
-	parser.add_argument('--num_batches_gen', type=int, default=50,
+	parser.add_argument('--num_batches_gen', type=int, default=100,
 		help='number of batches to train generator for each epoch')
-	parser.add_argument('--num_batches_dis', type=int, default=50,
+	parser.add_argument('--num_batches_dis', type=int, default=25,
 		help='number of batches to train discriminator for each epoch')
-	parser.add_argument('--num_example_batches', type=int, default=200,
+	parser.add_argument('--num_example_batches', type=int, default=100,
 		help='number of batches to generate')
 	parser.add_argument('--save_every', type=int, default=25,
 		help='save frequency')
