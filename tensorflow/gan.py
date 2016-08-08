@@ -21,7 +21,8 @@ def variable_summaries(var, name):
 
 
 class GAN(object):
-    def __init__(self, args, train_method):
+    def __init__(self, args, global_step_tensor, train_method):
+    
         if args.model == 'rnn':
             cell_gen = rnn_cell.BasicRNNCell(args.rnn_size)
             cell_dis = rnn_cell.BasicRNNCell(args.rnn_size)
@@ -142,7 +143,8 @@ class GAN(object):
                 gen_grads            = tf.gradients(self.cost, gen_vars)
                 gen_grads_clipped, _ = tf.clip_by_global_norm(gen_grads, args.grad_clip)
                 gen_optimizer        = tf.train.AdamOptimizer(self.lr_gen)
-                self.gen_train_op    = gen_optimizer.apply_gradients(zip(gen_grads_clipped, gen_vars))
+                self.gen_train_op = gen_optimizer.apply_gradients(zip(gen_grads_clipped, gen_vars), 
+                                            global_step = global_step_tensor)
         
                 # TODO: Handle this better.
                 with tf.name_scope('summary'):
@@ -160,9 +162,11 @@ class GAN(object):
                 dis_grads            = tf.gradients(self.cost, dis_vars)
                 dis_grads_clipped, _ = tf.clip_by_global_norm(dis_grads, args.grad_clip)
                 dis_optimizer        = tf.train.AdamOptimizer(self.lr_dis)
-                self.dis_train_op    = dis_optimizer.apply_gradients(zip(dis_grads_clipped, dis_vars))
+                self.dis_train_op = dis_optimizer.apply_gradients(zip(dis_grads_clipped, dis_vars), 
+                                            global_step = global_step_tensor)
 
             else:
                 raise Exception('train method not supported: {}'.format(train_method))
 
+        
         self.merged = tf.merge_all_summaries()

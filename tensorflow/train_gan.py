@@ -76,15 +76,13 @@ def train_generator(sess, gan, args, train_writer):
 		
 		for batch in xrange(args.num_batches_gen):
 			start = time.time()
-	
-			gen_train_loss, gen_summary, state_gen, state_dis, _ = sess.run([
+			gen_train_loss, gen_summary, state_gen, _ = sess.run([
 				gan.cost, 
 				gan.merged,
 				gan.final_state_gen,
-				gan.final_state_dis, 
 				gan.gen_train_op])
 
-			train_writer.add_summary(gen_summary, batch)
+			train_writer.add_summary(gen_summary)
 			end   = time.time()
 
 			print '{}/{} (epoch {}), gen_train_loss = {:.3f}, time/batch = {:.3f}' \
@@ -160,6 +158,7 @@ def reset_reviews(data_dir, file_name):
 
 def adversarial_training(sess, gan, gan_dis, writer, saver, args, weights_load='random'):
 	'''Adversarial Training'''
+	
 	if weights_load == 'random':
 		print('Initializing GAN parameters randomly.')
 	elif weights_load == 'gan':
@@ -181,7 +180,7 @@ def adversarial_training(sess, gan, gan_dis, writer, saver, args, weights_load='
 
 		if epoch % args.save_every == 0:
 			checkpoint_path = os.path.join(args.save_dir_GAN, 'model.ckpt')
-			saver.save(sess, checkpoint_path, global_step = epoch)
+			saver.save(sess, checkpoint_path)
 			print 'GAN model saved to {}'.format(checkpoint_path)
 
 
@@ -198,9 +197,10 @@ if __name__=='__main__':
 		cPickle.dump((batcher.chars, batcher.vocab), f)
 
 	with tf.variable_scope('gan') as scope:
-		gan_gen = GAN(args, train_method='train_gen')
+		global_step_tensor = tf.Variable(0, trainable=False, name='global_step')
+		gan_gen = GAN(args, global_step_tensor, train_method='train_gen')
 		scope.reuse_variables()
-		gan_dis = GAN(args, train_method='train_dis')
+		gan_dis = GAN(args, global_step_tensor, train_method='train_dis')
 
 	tvars = tf.all_variables()
 	saver = tf.train.Saver(tvars)
