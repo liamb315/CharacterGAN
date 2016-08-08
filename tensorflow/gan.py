@@ -1,200 +1,168 @@
 import tensorflow as tf
-import numpy as np
 from tensorflow.python.ops.nn import rnn_cell
 from tensorflow.python.ops.nn import rnn
-from tensorflow.python.ops.nn import seq2seq
 from tensorflow.python.ops import array_ops
 from tensorflow.python.ops import nn_ops
 from tensorflow.python.ops import math_ops
 from tensorflow.python.framework import ops
+from tensorflow.python.ops.nn import seq2seq 
 from tensorflow.contrib.distributions import Categorical
 
 def variable_summaries(var, name):
-	'''Attach a lot of summaries to a Tensor.'''
-	mean = tf.reduce_mean(var)
-	tf.scalar_summary('mean/' + name, mean)
-	with tf.name_scope('stddev'):
-		stddev = tf.sqrt(tf.reduce_sum(tf.square(var - mean)))
-	tf.scalar_summary('sttdev/' + name, stddev)
-	tf.scalar_summary('max/' + name, tf.reduce_max(var))
-	tf.scalar_summary('min/' + name, tf.reduce_min(var))
-	tf.histogram_summary(name, var)
+    '''Attach a lot of summaries to a Tensor.'''
+    mean = tf.reduce_mean(var)
+    tf.scalar_summary('mean/' + name, mean)
+    with tf.name_scope('stddev'):
+        stddev = tf.sqrt(tf.reduce_sum(tf.square(var - mean)))
+    tf.scalar_summary('sttdev/' + name, stddev)
+    tf.scalar_summary('max/' + name, tf.reduce_max(var))
+    tf.scalar_summary('min/' + name, tf.reduce_min(var))
+    tf.histogram_summary(name, var)
 
 
-	
 class GAN(object):
-	def __init__(self, args, is_training=True):
+    def __init__(self, args, train_method):
+        if args.model == 'rnn':
+            cell_gen = rnn_cell.BasicRNNCell(args.rnn_size)
+            cell_dis = rnn_cell.BasicRNNCell(args.rnn_size)
+        elif args.model == 'gru':
+            cell_gen = rnn_cell.GRUCell(args.rnn_size)
+            cell_dis = rnn_cell.GRUCell(args.rnn_size)
+        elif args.model == 'lstm':
+            cell_gen = rnn_cell.BasicLSTMCell(args.rnn_size, state_is_tuple=False)
+            cell_dis = rnn_cell.BasicLSTMCell(args.rnn_size, state_is_tuple=False)
+        else:
+            raise NotImplementedError('Model type not supported: {}'
+                                      .format(args.model))
 
-		if not is_training:
-			seq_length = 1
-		else:
-			seq_length = args.seq_length
+        if train_method == 'train_gen':
+            # TODO: Better initialization.
+            indices = []
+            batch_indices = tf.fill([args.batch_size], 0)
+            
+            # Targets for Generator are 1            
+            self.targets = tf.ones([args.batch_size, args.seq_length], dtype=tf.int32)
+            
+            # Generator Portion of GAN.
+            with tf.variable_scope('generator'):
+                outputs_gen, logit_sequence = [], []
+                cell_gen = rnn_cell.MultiRNNCell([cell_gen] * args.num_layers)
+                self.initial_state_gen = cell_gen.zero_state(args.batch_size, tf.float32)
+                state_gen = self.initial_state_gen
 
-		if args.model == 'rnn':
-			cell_gen = rnn_cell.BasicRNNCell(args.rnn_size)
-			cell_dis = rnn_cell.BasicRNNCell(args.rnn_size)
-		elif args.model == 'gru':
-			cell_gen = rnn_cell.GRUCell(args.rnn_size)
-			cell_dis = rnn_cell.GRUCell(args.rnn_size)
-		elif args.model == 'lstm':
-			cell_gen = rnn_cell.BasicLSTMCell(args.rnn_size)
-			cell_dis = rnn_cell.BasicLSTMCell(args.rnn_size)
-		else:
-			raise Exception('model type not supported: {}'.format(args.model))
+                with tf.variable_scope('rnn'):
+                    softmax_w = tf.get_variable('softmax_w', [args.rnn_size, args.vocab_size])
+                    softmax_b = tf.get_variable('softmax_b', [args.vocab_size])
+                    embedding = tf.get_variable('embedding', [args.vocab_size, args.rnn_size])
+                    inp = tf.nn.embedding_lookup(embedding, batch_indices)
+            
+                    for i in xrange(args.seq_length):
+                        indices.append(batch_indices)
+                        if i > 0:
+                            tf.get_variable_scope().reuse_variables()
+                      
+                        # RNN.
+                        output_gen, state_gen = cell_gen(inp, state_gen)
+                        logits_gen = tf.nn.xw_plus_b(output_gen, softmax_w, softmax_b)
+                        
+                        # Sampling.
+                        sample_op = tf.stop_gradient(Categorical(
+                                                    logits_gen).sample(n=1))
+                        batch_indices = tf.squeeze(sample_op)
+                        inp = tf.nn.embedding_lookup(embedding, batch_indices)                
+                        
+                        # Use Only Logit Sampled.
+                        one_hot = tf.stop_gradient(tf.one_hot(batch_indices,
+                                                              depth = args.vocab_size,
+                                                              dtype = tf.float32))
+                        logit_gen = one_hot * logits_gen
+                        logit_sequence.append(logit_gen)
+                        outputs_gen.append(output_gen)
 
-		# Pass the generated sequences and targets (1)
-		with tf.name_scope('input'):
-			with tf.name_scope('data'):
-				self.input_data  = tf.placeholder(tf.int32, [args.batch_size, seq_length])
-			with tf.name_scope('targets'):
-				self.targets     = tf.placeholder(tf.int32, [args.batch_size, seq_length])
+                self.final_state_gen = state_gen
+            
+                # Sampled indices
+                self.sample_op = tf.pack(indices)
+          
+        elif train_method == 'train_dis':
+            self.input_data = tf.placeholder(tf.int32, [args.batch_size, args.seq_length])
+            self.targets = tf.placeholder(tf.int32, [args.batch_size, args.seq_length]) # Target replication
 
-		############
-		# Generator
-		############
-		with tf.variable_scope('generator'):
-			self.cell_gen = rnn_cell.MultiRNNCell([cell_gen] * args.num_layers)
-			self.initial_state_gen = self.cell_gen.zero_state(args.batch_size, tf.float32)	
+        else:
+            raise Exception('train method not supported: {}'.format(train_method))
 
-			with tf.variable_scope('rnn'):
-				softmax_w = tf.get_variable('softmax_w', [args.rnn_size, args.vocab_size])
-				softmax_b = tf.get_variable('softmax_b', [args.vocab_size])
-				
-				with tf.device('/cpu:0'):
-					embedding  = tf.get_variable('embedding', [args.vocab_size, args.rnn_size])
-					inputs_gen = tf.split(1, seq_length, tf.nn.embedding_lookup(
-						embedding, self.input_data))
-					inputs_gen = [tf.squeeze(i, [1]) for i in inputs_gen]
+        # Discriminator Portion of GAN. 
+        with tf.variable_scope('discriminator'):
+            cell_dis = rnn_cell.MultiRNNCell([cell_dis] * args.num_layers)
+            self.initial_state_dis = cell_dis.zero_state(args.batch_size, tf.float32)
 
-			# Prior method to generate outputs
-			outputs_gen, last_state_gen = seq2seq.rnn_decoder(inputs_gen, self.initial_state_gen, 
-				self.cell_gen, loop_function=None)
-			
-			# New method to generate outputs
-			# state_gen = self.initial_state_gen
+            with tf.variable_scope('rnn'):
+                softmax_w_dis = tf.get_variable('softmax_w', [args.rnn_size, 2])
+                softmax_b_dis = tf.get_variable('softmax_b', [2])
+                embedding_dis = tf.get_variable('embedding', [args.vocab_size, args.rnn_size])            
 
-			# for i, inp in enumerate(inputs_gen):
-			# 	if i > 0:
-			# 		tf.get_variable_scope().reuse_variables()
-			# 	output_gen, state_gen = self.cell_gen(inp, state_gen)
-			# 	outputs_gen.append(output_gen)
-			# last_state_gen = state_gen
+                if train_method == 'train_gen':
+                    # Input sequence to Discriminator.
+                    inputs_dis = []
+                    for logit in logit_sequence:
+                        inputs_dis.append(tf.matmul(logit, embedding_dis))
+                    assert len(inputs_dis) == len(outputs_gen)
 
-			# Store logit(s) sequences
-			self.logits_sequence, self.logit_sequence  = [], [] 
-			for i, output_gen in enumerate(outputs_gen):
-				# All logits 
-				logits_gen  = tf.nn.xw_plus_b(output_gen, softmax_w, softmax_b)
-				self.logits_sequence.append(logits_gen)
+                elif train_method == 'train_dis':
+                    # Input sequence to Discriminator.
+                    inputs = tf.split(1, args.seq_length, tf.nn.embedding_lookup(embedding_dis, self.input_data))
+                    inputs_dis = [tf.squeeze(i, [1]) for i in inputs]
 
-				# One logit 
-				data_indices = tf.slice(self.input_data, 
-					                    begin = [0,i], 
-					                    size = [args.batch_size, 1])
-				data_indices = tf.squeeze(data_indices)
-				one_hot = tf.stop_gradient(tf.one_hot(indices = data_indices, 
-								   		   			depth = args.vocab_size,
-								   		   			dtype = tf.float32))
-				logit_gen = one_hot * logits_gen
-				self.logit_sequence.append(logit_gen)
+                else:
+                    raise Exception('train method not supported: {}'.format(train_method))
 
-			self.final_state_gen = last_state_gen
+                # RNN.
+                outputs_dis, self.final_state_dis = seq2seq.rnn_decoder(inputs_dis,
+                    self.initial_state_dis, cell_dis, loop_function=None)
 
-		################
-		# Discriminator
-		################
-		with tf.variable_scope('discriminator'):
-			self.cell_dis = rnn_cell.MultiRNNCell([cell_dis] * args.num_layers)
-			self.initial_state_dis = self.cell_dis.zero_state(args.batch_size, tf.float32)
+                # Predictions.
+                probs_dis, logits_dis = [], []
+                for output_dis in outputs_dis:
+                    logit_dis = tf.nn.xw_plus_b(output_dis, softmax_w_dis, softmax_b_dis)
+                    prob_dis = tf.nn.softmax(logit_dis)
+                    logits_dis.append(logit_dis)
+                    probs_dis.append(prob_dis)
+        
+        with tf.name_scope('train'):
+            loss = seq2seq.sequence_loss_by_example(logits_dis, 
+                tf.unpack(tf.transpose(self.targets)), 
+                tf.unpack(tf.transpose(tf.ones_like(self.targets, dtype=tf.float32))))
+            self.cost = tf.reduce_sum(loss) / args.batch_size
+            tf.scalar_summary('training loss', self.cost)
+            tvars = tf.trainable_variables()
 
-			with tf.variable_scope('rnn'):
-				softmax_w = tf.get_variable('softmax_w', [args.rnn_size, 2])
-				softmax_b = tf.get_variable('softmax_b', [2])
+            if train_method == 'train_gen':         
+                self.lr_gen = tf.Variable(0.0, trainable = False)
+                gen_vars = [v for v in tvars if v.name.startswith("gan/generator")]
+                gen_grads            = tf.gradients(self.cost, gen_vars)
+                gen_grads_clipped, _ = tf.clip_by_global_norm(gen_grads, args.grad_clip)
+                gen_optimizer        = tf.train.AdamOptimizer(self.lr_gen)
+                self.gen_train_op    = gen_optimizer.apply_gradients(zip(gen_grads_clipped, gen_vars))
+        
+                # TODO: Handle this better.
+                with tf.name_scope('summary'):
+                    with tf.name_scope('weight_summary'):
+                        for v in tvars:
+                            variable_summaries(v, v.op.name)
+                    with tf.name_scope('grad_summary'):
+                        all_grads = tf.gradients(self.cost, tvars)
+                        for var, grad in zip(tvars, all_grads):
+                            variable_summaries(grad, 'grad/' + var.op.name)
 
-				inputs_dis = []
-				embedding  = tf.get_variable('embedding', [args.vocab_size, args.rnn_size])
-				# for logit in self.logits_sequence:
-				for logit in self.logit_sequence:
-					inputs_dis.append(tf.matmul(logit, embedding))
-					
-				outputs_dis, last_state_dis = seq2seq.rnn_decoder(inputs_dis,
-					self.initial_state_dis, self.cell_dis, loop_function=None)
+            elif train_method == 'train_dis':
+                self.lr_dis = tf.Variable(0.0, trainable = False)
+                dis_vars = [v for v in tvars if v.name.startswith("gan/discriminator")]
+                dis_grads            = tf.gradients(self.cost, dis_vars)
+                dis_grads_clipped, _ = tf.clip_by_global_norm(dis_grads, args.grad_clip)
+                dis_optimizer        = tf.train.AdamOptimizer(self.lr_dis)
+                self.dis_train_op    = dis_optimizer.apply_gradients(zip(dis_grads_clipped, dis_vars))
 
-			probs, logits = [], []
-			for output_dis in outputs_dis:
-				logit = tf.nn.xw_plus_b(output_dis, softmax_w, softmax_b)
-				prob = tf.nn.softmax(logit)
-				logits.append(logit)
-				probs.append(prob)
+            else:
+                raise Exception('train method not supported: {}'.format(train_method))
 
-			with tf.name_scope('summary'):
-				probs      = tf.pack(probs)
-				probs_real = tf.slice(probs, [0,0,1], [args.seq_length, args.batch_size, 1])
-				variable_summaries(probs_real, 'probability of real')
-
-			self.final_state_dis = last_state_dis
-
-		#########
-		# Train
-		#########
-		with tf.name_scope('train'):
-			gen_loss = seq2seq.sequence_loss_by_example(
-				logits,
-				tf.unpack(tf.transpose(self.targets)), 
-				tf.unpack(tf.transpose(tf.ones_like(self.targets, dtype=tf.float32))))
-
-			self.gen_cost = tf.reduce_sum(gen_loss) / args.batch_size
-			tf.scalar_summary('training loss', self.gen_cost)
-			self.lr_gen = tf.Variable(0.0, trainable = False)		
-			self.tvars 	= tf.trainable_variables()
-			gen_vars    = [v for v in self.tvars if not v.name.startswith("discriminator/")]
-
-			if is_training:
-				gen_grads            = tf.gradients(self.gen_cost, gen_vars)
-				self.all_grads       = tf.gradients(self.gen_cost, self.tvars)
-				gen_grads_clipped, _ = tf.clip_by_global_norm(gen_grads, args.grad_clip)
-				gen_optimizer        = tf.train.AdamOptimizer(self.lr_gen)
-				self.gen_train_op    = gen_optimizer.apply_gradients(
-											zip(gen_grads_clipped, gen_vars))				
-
-		with tf.name_scope('summary'):
-			with tf.name_scope('weight_summary'):
-				for v in self.tvars:
-					variable_summaries(v, v.op.name)
-			if is_training:
-				with tf.name_scope('grad_summary'):
-					for var, grad in zip(self.tvars, self.all_grads):
-						variable_summaries(grad, 'grad/' + var.op.name)
-
-		self.merged = tf.merge_all_summaries()
-
-		
-	def generate_samples(self, sess, num_batches, args, chars, vocab, seq_length = 200, 
-						 initial = ' ', 
-						 datafile = 'data/gan/fake_reviews.txt'):
-		''' Generate a batch of reviews'''		
-		state = self.cell_gen.zero_state(args.batch_size, tf.float32).eval()
-
-		for n in xrange(num_batches):
-			sequence_matrix = []
-			for i in xrange(args.batch_size):
-				sequence_matrix.append([])
-			char_arr = args.batch_size * [initial]
-			
-			for n in xrange(seq_length):
-				x = np.zeros((args.batch_size, 1))
-				for i, char in enumerate(char_arr):
-					x[i,0] = vocab[char]    
-				feed = {self.input_data: x, self.initial_state_gen: state} 
-				sample_op = Categorical(tf.squeeze(self.logits_sequence))
-				[sample_indexes, state] = sess.run(
-					[sample_op.sample(n = 1), self.final_state_gen], feed)
-				char_arr = [chars[i] for i in sample_indexes[0]]
-				for i, char in enumerate(char_arr):
-					sequence_matrix[i].append(char)
-
-			with open(datafile, 'a+') as f:
-				for line in sequence_matrix:
-					print>>f, ''.join(line) 
-
-	
+        self.merged = tf.merge_all_summaries()
