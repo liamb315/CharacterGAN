@@ -22,7 +22,7 @@ def variable_summaries(var, name):
 
 class GAN(object):
     def __init__(self, args, global_step_tensor, train_method):
-    
+
         if args.model == 'rnn':
             cell_gen = rnn_cell.BasicRNNCell(args.rnn_size)
             cell_dis = rnn_cell.BasicRNNCell(args.rnn_size)
@@ -30,6 +30,9 @@ class GAN(object):
             cell_gen = rnn_cell.GRUCell(args.rnn_size)
             cell_dis = rnn_cell.GRUCell(args.rnn_size)
         elif args.model == 'lstm':
+            # initializer = 
+            # cell 
+
             cell_gen = rnn_cell.BasicLSTMCell(args.rnn_size, state_is_tuple=False)
             cell_dis = rnn_cell.BasicLSTMCell(args.rnn_size, state_is_tuple=False)
         else:
@@ -134,7 +137,6 @@ class GAN(object):
                 tf.unpack(tf.transpose(self.targets)), 
                 tf.unpack(tf.transpose(tf.ones_like(self.targets, dtype=tf.float32))))
             self.cost = tf.reduce_sum(loss) / args.batch_size
-            tf.scalar_summary('training loss', self.cost)
             tvars = tf.trainable_variables()
 
             if train_method == 'train_gen':         
@@ -145,17 +147,7 @@ class GAN(object):
                 gen_optimizer        = tf.train.AdamOptimizer(self.lr_gen)
                 self.gen_train_op = gen_optimizer.apply_gradients(zip(gen_grads_clipped, gen_vars), 
                                             global_step = global_step_tensor)
-        
-                # TODO: Handle this better.
-                with tf.name_scope('summary'):
-                    with tf.name_scope('weight_summary'):
-                        for v in tvars:
-                            variable_summaries(v, v.op.name)
-                    with tf.name_scope('grad_summary'):
-                        all_grads = tf.gradients(self.cost, tvars)
-                        for var, grad in zip(tvars, all_grads):
-                            variable_summaries(grad, 'grad/' + var.op.name)
-
+                
             elif train_method == 'train_dis':
                 self.lr_dis = tf.Variable(0.0, trainable = False)
                 dis_vars = [v for v in tvars if v.name.startswith("gan/discriminator")]
@@ -168,5 +160,15 @@ class GAN(object):
             else:
                 raise Exception('train method not supported: {}'.format(train_method))
 
-        
+        # TODO: Fix the merging of summaries.
+        with tf.name_scope('summary'):
+            tf.scalar_summary('training loss', self.cost)
+            with tf.name_scope('weight_summary'):
+                for v in tvars:
+                    variable_summaries(v, v.op.name)
+            with tf.name_scope('grad_summary'):
+                all_grads = tf.gradients(self.cost, tvars)
+                for var, grad in zip(tvars, all_grads):
+                    variable_summaries(grad, 'grad/' + var.op.name)
+
         self.merged = tf.merge_all_summaries()
