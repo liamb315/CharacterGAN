@@ -66,6 +66,7 @@ def parse_args():
 	return parser.parse_args()
 
 
+
 def train_generator(sess, gan, args, train_writer):
 	'''Train Generator via GAN.'''
 	logging.debug('Training generator...')
@@ -78,7 +79,7 @@ def train_generator(sess, gan, args, train_writer):
 			start = time.time()
 			gen_train_loss, gen_summary, state_gen, _ = sess.run([
 				gan.cost, 
-				gan.merged,
+				gan.gen_loss_summary,
 				gan.final_state_gen,
 				gan.gen_train_op])
 
@@ -117,7 +118,7 @@ def train_discriminator(sess, gan, args, train_writer):
 			feed  = {gan.input_data: x, gan.targets: y,
 					 gan.initial_state_dis: state}
 			train_loss, dis_summary, state, _ = sess.run([gan.cost,
-											gan.merged,
+											gan.dis_loss_summary,
 											gan.final_state_dis,
 											gan.dis_train_op], 
 											feed)
@@ -200,6 +201,7 @@ if __name__=='__main__':
 
 	global_step_tensor = tf.Variable(0, trainable=False, name='global_step')
 	
+
 	with tf.variable_scope('gan') as scope:
 		gan_gen = GAN(args, global_step_tensor, train_method='train_gen')
 		scope.reuse_variables()

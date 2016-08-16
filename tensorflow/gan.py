@@ -8,6 +8,7 @@ from tensorflow.python.framework import ops
 from tensorflow.python.ops.nn import seq2seq 
 from tensorflow.contrib.distributions import Categorical
 
+
 def variable_summaries(var, name):
     '''Attach a lot of summaries to a Tensor.'''
     mean = tf.reduce_mean(var)
@@ -18,7 +19,6 @@ def variable_summaries(var, name):
     tf.scalar_summary('max/' + name, tf.reduce_max(var))
     tf.scalar_summary('min/' + name, tf.reduce_min(var))
     tf.histogram_summary(name, var)
-
 
 class GAN(object):
     def __init__(self, args, global_step_tensor, train_method):
@@ -31,8 +31,6 @@ class GAN(object):
             cell_dis = rnn_cell.GRUCell(args.rnn_size)
         elif args.model == 'lstm':
             # initializer = 
-            # cell 
-
             cell_gen = rnn_cell.BasicLSTMCell(args.rnn_size, state_is_tuple=False)
             cell_dis = rnn_cell.BasicLSTMCell(args.rnn_size, state_is_tuple=False)
         else:
@@ -141,34 +139,38 @@ class GAN(object):
 
             if train_method == 'train_gen':         
                 self.lr_gen = tf.Variable(0.0, trainable = False)
-                gen_vars = [v for v in tvars if v.name.startswith("gan/generator")]
-                gen_grads            = tf.gradients(self.cost, gen_vars)
-                gen_grads_clipped, _ = tf.clip_by_global_norm(gen_grads, args.grad_clip)
+                self.gen_vars = [v for v in tvars if v.name.startswith("gan/generator")]
+                self.gen_grads            = tf.gradients(self.cost, self.gen_vars)
+                gen_grads_clipped, _ = tf.clip_by_global_norm(self.gen_grads, args.grad_clip)
                 gen_optimizer        = tf.train.AdamOptimizer(self.lr_gen)
-                self.gen_train_op = gen_optimizer.apply_gradients(zip(gen_grads_clipped, gen_vars), 
+                self.gen_train_op = gen_optimizer.apply_gradients(zip(gen_grads_clipped, self.gen_vars), 
                                             global_step = global_step_tensor)
                 
             elif train_method == 'train_dis':
                 self.lr_dis = tf.Variable(0.0, trainable = False)
-                dis_vars = [v for v in tvars if v.name.startswith("gan/discriminator")]
-                dis_grads            = tf.gradients(self.cost, dis_vars)
-                dis_grads_clipped, _ = tf.clip_by_global_norm(dis_grads, args.grad_clip)
+                self.dis_vars = [v for v in tvars if v.name.startswith("gan/discriminator")]
+                self.dis_grads       = tf.gradients(self.cost, self.dis_vars)
+                dis_grads_clipped, _ = tf.clip_by_global_norm(self.dis_grads, args.grad_clip)
                 dis_optimizer        = tf.train.AdamOptimizer(self.lr_dis)
-                self.dis_train_op = dis_optimizer.apply_gradients(zip(dis_grads_clipped, dis_vars), 
+                self.dis_train_op = dis_optimizer.apply_gradients(zip(dis_grads_clipped, self.dis_vars), 
                                             global_step = global_step_tensor)
 
             else:
                 raise Exception('train method not supported: {}'.format(train_method))
 
-        # TODO: Fix the merging of summaries.
         with tf.name_scope('summary'):
-            tf.scalar_summary('training loss', self.cost)
-            with tf.name_scope('weight_summary'):
-                for v in tvars:
-                    variable_summaries(v, v.op.name)
-            with tf.name_scope('grad_summary'):
-                all_grads = tf.gradients(self.cost, tvars)
-                for var, grad in zip(tvars, all_grads):
-                    variable_summaries(grad, 'grad/' + var.op.name)
+            if train_method == 'train_gen':  
+                self.gen_loss_summary = tf.scalar_summary('gen training loss', self.cost)
+            # with tf.name_scope('weight_summary'):
+            #     for v in tvars:
+            #         variable_summaries(v, v.op.name)
+            # with tf.name_scope('grad_summary'):
+            #     for var, grad in zip(self.gen_vars, self.gen_grads):
+            #         variable_summaries(grad, 'grad/' + var.op.name)
+            #     for var, grad in zip(self.dis_vars, self.dis_grads):
+            #         variable_summaries(grad, 'grad/' + var.op.name)
+            
+            elif train_method == 'train_dis':
+                self.dis_loss_summary = tf.scalar_summary('dis training loss', self.cost)
 
-        self.merged = tf.merge_all_summaries()
+        # self.merged = tf.merge_all_summaries()
