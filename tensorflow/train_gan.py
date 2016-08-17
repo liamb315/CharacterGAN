@@ -45,9 +45,9 @@ def parse_args():
 		help='number of epochs to train discriminator')
 	parser.add_argument('--num_batches_gen', type=int, default=10,
 		help='number of batches to train generator for each epoch')
-	parser.add_argument('--num_batches_dis', type=int, default=25,
+	parser.add_argument('--num_batches_dis', type=int, default=100,
 		help='number of batches to train discriminator for each epoch')
-	parser.add_argument('--num_example_batches', type=int, default=100,
+	parser.add_argument('--num_example_batches', type=int, default=1000,
 		help='number of batches to generate')
 	parser.add_argument('--save_every', type=int, default=25,
 		help='save frequency')
@@ -55,7 +55,7 @@ def parse_args():
 		help='clip gradients at this value')
 	parser.add_argument('--learning_rate_gen', type=float, default=0.0001,
 		help='learning rate')
-	parser.add_argument('--learning_rate_dis', type=float, default=0.0001,
+	parser.add_argument('--learning_rate_dis', type=float, default=0.005,
 		help='learning rate for discriminator')
 	parser.add_argument('--decay_rate', type=float, default=0.97,
 		help='decay rate for rmsprop')
@@ -79,7 +79,7 @@ def train_generator(sess, gan, args, train_writer):
 			start = time.time()
 			gen_train_loss, gen_summary, state_gen, _ = sess.run([
 				gan.cost, 
-				gan.gen_loss_summary,
+				gan.gen_merged,
 				gan.final_state_gen,
 				gan.gen_train_op])
 
@@ -118,7 +118,7 @@ def train_discriminator(sess, gan, args, train_writer):
 			feed  = {gan.input_data: x, gan.targets: y,
 					 gan.initial_state_dis: state}
 			train_loss, dis_summary, state, _ = sess.run([gan.cost,
-											gan.dis_loss_summary,
+											gan.dis_merged,
 											gan.final_state_dis,
 											gan.dis_train_op], 
 											feed)
@@ -199,15 +199,15 @@ if __name__=='__main__':
 	with open(os.path.join(args.save_dir_GAN, args.vocab_file), 'w') as f:
 		cPickle.dump((batcher.chars, batcher.vocab), f)
 
-	global_step_tensor = tf.Variable(0, trainable=False, name='global_step')
+	# global_step_tensor = tf.Variable(0, trainable=False, name='global_step')
 	
 
 	with tf.variable_scope('gan') as scope:
-		gan_gen = GAN(args, global_step_tensor, train_method='train_gen')
+		gan_gen = GAN(args, train_method='train_gen')
 		scope.reuse_variables()
-		gan_dis = GAN(args, global_step_tensor, train_method='train_dis')
+		gan_dis = GAN(args, train_method='train_dis')
 
-	tvars = tf.all_variables()
+	tvars = tf.trainable_variables()
 	saver = tf.train.Saver(tvars)
 	
 	gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.20)
