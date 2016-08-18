@@ -79,7 +79,7 @@ def train_generator(sess, gan, args, train_writer):
 			start = time.time()
 			gen_train_loss, gen_summary, state_gen, _ = sess.run([
 				gan.cost, 
-				gan.gen_merged,
+				gan.merged,
 				gan.final_state_gen,
 				gan.gen_train_op])
 
@@ -92,7 +92,7 @@ def train_generator(sess, gan, args, train_writer):
 					epoch, gen_train_loss, end - start)
 			
 			
-def train_discriminator(sess, gan, args, train_writer):
+def train_discriminator(sess, gan, args):
 	'''Train the discriminator via classical approach'''
 	logging.debug('Training discriminator...')
 	
@@ -117,12 +117,10 @@ def train_discriminator(sess, gan, args, train_writer):
 			x, y  = batcher.next_batch()
 			feed  = {gan.input_data: x, gan.targets: y,
 					 gan.initial_state_dis: state}
-			train_loss, dis_summary, state, _ = sess.run([gan.cost,
-											gan.dis_merged,
+			train_loss, state, _ = sess.run([gan.cost,
 											gan.final_state_dis,
 											gan.dis_train_op], 
 											feed)
-			train_writer.add_summary(dis_summary)
 			end   = time.time()
 			
 			print '{}/{} (epoch {}), dis_train_loss = {:.3f}, time/batch = {:.3f}' \
@@ -176,7 +174,7 @@ def adversarial_training(sess, gan, gan_dis, writer, saver, args, weights_load='
 	generate_samples(sess, gan, args)
 
 	for epoch in xrange(args.num_epochs_GAN):
-		train_discriminator(sess, gan_dis, args, writer)
+		train_discriminator(sess, gan_dis, args)
 		train_generator(sess, gan, args, writer)
 		reset_reviews(args.data_dir, args.fake_input_file)
 		generate_samples(sess, gan, args)
@@ -200,7 +198,6 @@ if __name__=='__main__':
 		cPickle.dump((batcher.chars, batcher.vocab), f)
 
 	# global_step_tensor = tf.Variable(0, trainable=False, name='global_step')
-	
 
 	with tf.variable_scope('gan') as scope:
 		gan_gen = GAN(args, train_method='train_gen')

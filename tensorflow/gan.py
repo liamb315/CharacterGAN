@@ -135,6 +135,7 @@ class GAN(object):
                 tf.unpack(tf.transpose(self.targets)), 
                 tf.unpack(tf.transpose(tf.ones_like(self.targets, dtype=tf.float32))))
             self.cost = tf.reduce_sum(loss) / args.batch_size
+            tf.scalar_summary('training loss', self.cost)
             tvars = tf.trainable_variables()
 
             if train_method == 'train_gen':         
@@ -146,7 +147,16 @@ class GAN(object):
                 self.gen_train_op = gen_optimizer.apply_gradients(zip(gen_grads_clipped, self.gen_vars))
                 # self.gen_train_op = gen_optimizer.apply_gradients(zip(gen_grads_clipped, self.gen_vars), 
                 #                             global_step = global_step_tensor)
-                
+
+                # # TODO: Handle this better.
+                # with tf.name_scope('weight_summary'):
+                #     for v in tvars:
+                #         variable_summaries(v, v.op.name)
+                # with tf.name_scope('grad_summary'):
+                #     all_grads = tf.gradients(self.cost, tvars)
+                #     for var, grad in zip(tvars, all_grads):
+                #         variable_summaries(grad, 'grad/' + var.op.name)
+      
             elif train_method == 'train_dis':
                 self.lr_dis = tf.Variable(0.0, trainable = False)
                 self.dis_vars = [v for v in tvars if v.name.startswith("gan/discriminator")]
@@ -160,10 +170,10 @@ class GAN(object):
             else:
                 raise Exception('train method not supported: {}'.format(train_method))
 
-        with tf.name_scope('summary'):
-            if train_method == 'train_gen':  
-                gen_summaries = []
-                gen_summaries.append(tf.scalar_summary('gen training loss', self.cost))
+
+        self.merged = tf.merge_all_summaries()            
+                # gen_summaries = []
+                # gen_summaries.append(tf.scalar_summary('gen training loss', self.cost))
 
                 # with tf.name_scope('weight_summary'):
                 #     for v in tvars:
@@ -173,10 +183,10 @@ class GAN(object):
                 #         variable_summaries(grad, 'grad/' + var.op.name)
             #     for var, grad in zip(self.dis_vars, self.dis_grads):
             #         variable_summaries(grad, 'grad/' + var.op.name)
-                self.gen_merged = tf.merge_summary(gen_summaries)
-            elif train_method == 'train_dis':
-                dis_summaries = []
-                dis_summaries.append(tf.scalar_summary('dis training loss', self.cost))
-                self.dis_merged = tf.merge_summary(dis_summaries)
+                # self.gen_merge    d = tf.merge_summary(gen_summaries)
+            # elif train_method == 'train_dis':
+                # dis_summaries = []
+                # dis_summaries.append(tf.scalar_summary('dis training loss', self.cost))
+                # self.dis_merged = tf.merge_summary(dis_summaries)
 
-        # self.merged = tf.merge_all_summaries()
+
