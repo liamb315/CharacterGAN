@@ -45,7 +45,7 @@ def parse_args():
 		help='number of epochs to train discriminator')
 	parser.add_argument('--num_batches_gen', type=int, default=100,
 		help='number of batches to train generator for each epoch')
-	parser.add_argument('--num_batches_dis', type=int, default=25,
+	parser.add_argument('--num_batches_dis', type=int, default=100,
 		help='number of batches to train discriminator for each epoch')
 	parser.add_argument('--num_example_batches', type=int, default=100,
 		help='number of batches to generate')
@@ -55,7 +55,7 @@ def parse_args():
 		help='clip gradients at this value')
 	parser.add_argument('--learning_rate_gen', type=float, default=0.0001,
 		help='learning rate')
-	parser.add_argument('--learning_rate_dis', type=float, default=0.0001,
+	parser.add_argument('--learning_rate_dis', type=float, default=0.005,
 		help='learning rate for discriminator')
 	parser.add_argument('--decay_rate', type=float, default=0.97,
 		help='decay rate for rmsprop')
