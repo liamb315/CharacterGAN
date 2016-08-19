@@ -27,7 +27,7 @@ def parse_args():
 		help='data directory containing reviews')
 	parser.add_argument('--save_dir_GAN', type=str, default='models_GAN',
 		help='directory to store checkpointed GAN models')
-	parser.add_argument('--rnn_size', type=int, default=128,
+	parser.add_argument('--rnn_size', type=int, default=256,
 		help='size of RNN hidden state')
 	parser.add_argument('--num_layers', type=int, default=1,
 		help='number of layers in the RNN')
@@ -35,7 +35,7 @@ def parse_args():
 		help='rnn, gru, or lstm')
 	parser.add_argument('--batch_size', type=int, default=10,
 		help='minibatch size')
-	parser.add_argument('--seq_length', type=int, default=30,
+	parser.add_argument('--seq_length', type=int, default=10,
 		help='RNN sequence length')
 	parser.add_argument('--num_epochs_GAN', type=int, default=100,
 		help='number of epochs of GAN')
@@ -43,11 +43,11 @@ def parse_args():
 		help='number of epochs to train generator')
 	parser.add_argument('--num_epochs_dis', type=int, default=1,
 		help='number of epochs to train discriminator')
-	parser.add_argument('--num_batches_gen', type=int, default=10,
+	parser.add_argument('--num_batches_gen', type=int, default=25,
 		help='number of batches to train generator for each epoch')
-	parser.add_argument('--num_batches_dis', type=int, default=100,
+	parser.add_argument('--num_batches_dis', type=int, default=25,
 		help='number of batches to train discriminator for each epoch')
-	parser.add_argument('--num_example_batches', type=int, default=1000,
+	parser.add_argument('--num_example_batches', type=int, default=100,
 		help='number of batches to generate')
 	parser.add_argument('--save_every', type=int, default=25,
 		help='save frequency')

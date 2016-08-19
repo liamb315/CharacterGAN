@@ -31,7 +31,6 @@ class GAN(object):
             cell_gen = rnn_cell.GRUCell(args.rnn_size)
             cell_dis = rnn_cell.GRUCell(args.rnn_size)
         elif args.model == 'lstm':
-            # initializer = 
             cell_gen = rnn_cell.BasicLSTMCell(args.rnn_size, state_is_tuple=False)
             cell_dis = rnn_cell.BasicLSTMCell(args.rnn_size, state_is_tuple=False)
         else:
