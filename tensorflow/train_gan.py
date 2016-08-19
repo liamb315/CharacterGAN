@@ -45,7 +45,7 @@ def parse_args():
 		help='number of epochs to train discriminator')
 	parser.add_argument('--num_batches_gen', type=int, default=100,
 		help='number of batches to train generator for each epoch')
-	parser.add_argument('--num_batches_dis', type=int, default=100,
+	parser.add_argument('--num_batches_dis', type=int, default=25,
 		help='number of batches to train discriminator for each epoch')
 	parser.add_argument('--num_example_batches', type=int, default=100,
 		help='number of batches to generate')
