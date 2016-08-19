@@ -20,8 +20,9 @@ def variable_summaries(var, name):
     tf.scalar_summary('min/' + name, tf.reduce_min(var))
     tf.histogram_summary(name, var)
 
+
 class GAN(object):
-    def __init__(self, args, train_method):
+    def __init__(self, args, global_step_tensor, train_method):
 
         if args.model == 'rnn':
             cell_gen = rnn_cell.BasicRNNCell(args.rnn_size)
@@ -135,7 +136,7 @@ class GAN(object):
                 tf.unpack(tf.transpose(self.targets)), 
                 tf.unpack(tf.transpose(tf.ones_like(self.targets, dtype=tf.float32))))
             self.cost = tf.reduce_sum(loss) / args.batch_size
-            tf.scalar_summary('training loss', self.cost)
+            tf.scalar_summary('gen training loss', self.cost)
             tvars = tf.trainable_variables()
 
             if train_method == 'train_gen':         
@@ -144,18 +145,17 @@ class GAN(object):
                 self.gen_grads            = tf.gradients(self.cost, self.gen_vars)
                 gen_grads_clipped, _ = tf.clip_by_global_norm(self.gen_grads, args.grad_clip)
                 gen_optimizer        = tf.train.AdamOptimizer(self.lr_gen)
-                self.gen_train_op = gen_optimizer.apply_gradients(zip(gen_grads_clipped, self.gen_vars))
-                # self.gen_train_op = gen_optimizer.apply_gradients(zip(gen_grads_clipped, self.gen_vars), 
-                #                             global_step = global_step_tensor)
+                self.gen_train_op = gen_optimizer.apply_gradients(zip(gen_grads_clipped, self.gen_vars), 
+                                            global_step = global_step_tensor)
 
-                # # TODO: Handle this better.
-                # with tf.name_scope('weight_summary'):
-                #     for v in tvars:
-                #         variable_summaries(v, v.op.name)
-                # with tf.name_scope('grad_summary'):
-                #     all_grads = tf.gradients(self.cost, tvars)
-                #     for var, grad in zip(tvars, all_grads):
-                #         variable_summaries(grad, 'grad/' + var.op.name)
+                with tf.name_scope('summary'):
+                    with tf.name_scope('weight_summary'):
+                        for v in tvars:
+                            variable_summaries(v, v.op.name)
+                    with tf.name_scope('grad_summary'):
+                        all_grads = tf.gradients(self.cost, tvars)
+                        for var, grad in zip(tvars, all_grads):
+                            variable_summaries(grad, 'grad/' + var.op.name)
       
             elif train_method == 'train_dis':
                 self.lr_dis = tf.Variable(0.0, trainable = False)
@@ -166,12 +166,14 @@ class GAN(object):
                 self.dis_train_op = dis_optimizer.apply_gradients(zip(dis_grads_clipped, self.dis_vars))
                 # self.dis_train_op = dis_optimizer.apply_gradients(zip(dis_grads_clipped, self.dis_vars), 
                 #                             global_step = global_step_tensor)
-
+        
+            
             else:
                 raise Exception('train method not supported: {}'.format(train_method))
 
-
         self.merged = tf.merge_all_summaries()            
+              
+
                 # gen_summaries = []
                 # gen_summaries.append(tf.scalar_summary('gen training loss', self.cost))
 

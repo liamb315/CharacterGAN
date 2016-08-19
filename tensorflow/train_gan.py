@@ -67,7 +67,7 @@ def parse_args():
 
 
 
-def train_generator(sess, gan, args, train_writer):
+def train_generator(sess, gan, args, train_writer, global_step_tensor):
 	'''Train Generator via GAN.'''
 	logging.debug('Training generator...')
 		
@@ -76,6 +76,7 @@ def train_generator(sess, gan, args, train_writer):
 		sess.run(tf.assign(gan.lr_gen, new_lr))
 		
 		for batch in xrange(args.num_batches_gen):
+			steps = tf.train.global_step(sess, global_step_tensor)
 			start = time.time()
 			gen_train_loss, gen_summary, state_gen, _ = sess.run([
 				gan.cost, 
@@ -83,7 +84,7 @@ def train_generator(sess, gan, args, train_writer):
 				gan.final_state_gen,
 				gan.gen_train_op])
 
-			train_writer.add_summary(gen_summary)
+			train_writer.add_summary(gen_summary, steps)
 			end   = time.time()
 
 			print '{}/{} (epoch {}), gen_train_loss = {:.3f}, time/batch = {:.3f}' \
@@ -157,7 +158,7 @@ def reset_reviews(data_dir, file_name):
 	open(os.path.join(data_dir, file_name), 'w').close()
 
 
-def adversarial_training(sess, gan, gan_dis, writer, saver, args, weights_load='random'):
+def adversarial_training(sess, gan, gan_dis, writer, saver, args, global_step_tensor, weights_load='random'):
 	'''Adversarial Training'''
 	
 	if weights_load == 'random':
@@ -170,12 +171,12 @@ def adversarial_training(sess, gan, gan_dis, writer, saver, args, weights_load='
 	else:
 		raise Exception('Invalid initialization for GAN: %s' % weights_load)
 
-	train_generator(sess, gan, args, writer)
+	train_generator(sess, gan, args, writer, global_step_tensor)
 	generate_samples(sess, gan, args)
 
 	for epoch in xrange(args.num_epochs_GAN):
 		train_discriminator(sess, gan_dis, args)
-		train_generator(sess, gan, args, writer)
+		train_generator(sess, gan, args, writer, global_step_tensor)
 		reset_reviews(args.data_dir, args.fake_input_file)
 		generate_samples(sess, gan, args)
 
@@ -197,14 +198,14 @@ if __name__=='__main__':
 	with open(os.path.join(args.save_dir_GAN, args.vocab_file), 'w') as f:
 		cPickle.dump((batcher.chars, batcher.vocab), f)
 
-	# global_step_tensor = tf.Variable(0, trainable=False, name='global_step')
+	global_step_tensor = tf.Variable(0, trainable=False, name='global_step')
 
 	with tf.variable_scope('gan') as scope:
-		gan_gen = GAN(args, train_method='train_gen')
+		gan_gen = GAN(args, global_step_tensor, train_method='train_gen')
 		scope.reuse_variables()
-		gan_dis = GAN(args, train_method='train_dis')
+		gan_dis = GAN(args, global_step_tensor, train_method='train_dis')
 
-	tvars = tf.trainable_variables()
+	tvars = tf.all_variables()
 	saver = tf.train.Saver(tvars)
 	
 	gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.20)
@@ -215,10 +216,10 @@ if __name__=='__main__':
 		init_op = tf.initialize_all_variables()
 		sess.run(init_op)
 		
-		adversarial_training(sess, gan_gen, gan_dis, writer, saver, args)
+		adversarial_training(sess, gan_gen, gan_dis, writer, saver, args, global_step_tensor)
 
 		# Components of adversarial training.
 		# reset_reviews(args.data_dir, args.fake_input_file)
 		# generate_samples(sess, gan_gen, args)
-		# train_generator(sess, gan_gen, args, writer)
+		# train_generator(sess, gan_gen, args, writer, global_step_tensor)
 		# train_discriminator(sess, gan_dis, args, writer)
