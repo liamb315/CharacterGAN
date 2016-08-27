@@ -77,8 +77,8 @@ class GAN(object):
                         one_hot = tf.stop_gradient(tf.one_hot(batch_indices,
                                                               depth = args.vocab_size,
                                                               dtype = tf.float32))
-                        logit_gen = one_hot * logits_gen
-                        logit_sequence.append(logit_gen)
+                        # logit_gen = one_hot * logits_gen
+                        logit_sequence.append(logits_gen)
                         outputs_gen.append(output_gen)
 
                 self.final_state_gen = state_gen
