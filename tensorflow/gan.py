@@ -69,7 +69,7 @@ class GAN(object):
                         
                         # Sampling.
                         sample_op = tf.stop_gradient(Categorical(
-                                                    logits_gen).sample(n=1))
+                                                    logits_gen).sample())
                         batch_indices = tf.squeeze(sample_op)
                         inp = tf.nn.embedding_lookup(embedding, batch_indices)                
                         
