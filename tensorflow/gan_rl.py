@@ -38,12 +38,8 @@ class GAN(object):
                                       .format(args.model))
 
         if train_method == 'train_gen':
-            # TODO: Better initialization.
             indices = []
-            batch_indices = tf.fill([args.batch_size], 0)
-            
-            # Targets for Generator are 1            
-            self.targets = tf.ones([args.batch_size, args.seq_length], dtype=tf.int32)
+            index = tf.fill([args.batch_size], 0)
             
             # Generator Portion of GAN.
             with tf.variable_scope('generator'):
@@ -56,25 +52,22 @@ class GAN(object):
                     softmax_w = tf.get_variable('softmax_w', [args.rnn_size, args.vocab_size])
                     softmax_b = tf.get_variable('softmax_b', [args.vocab_size])
                     embedding = tf.get_variable('embedding', [args.vocab_size, args.rnn_size])
-                    inp = tf.nn.embedding_lookup(embedding, batch_indices)
+                    input_gen = tf.nn.embedding_lookup(embedding, index)
             
                     for i in xrange(args.seq_length):
-                        indices.append(batch_indices)
+                        indices.append(index)
                         if i > 0:
                             tf.get_variable_scope().reuse_variables()
                       
-                        # RNN.
-                        output_gen, state_gen = cell_gen(inp, state_gen)
+                        output_gen, state_gen = cell_gen(input_gen, state_gen)
                         logits_gen = tf.nn.xw_plus_b(output_gen, softmax_w, softmax_b)
-                        log_probs = tf.nn.log_softmax(logits_gen)
+                        log_probs_gen = tf.nn.log_softmax(logits_gen)
 
                         # Sampling.
-                        categorical = Categorical(log_probs)
-                        batch_indices = categorical.sample()
-                        inp = tf.nn.embedding_lookup(embedding, batch_indices)                
+                        index = tf.contrib.bayesflow.stochastic_graph.DistributionTensor(
+                            tf.contrib.distributions.Categorical, logits = log_probs_gen)
+                        one_hot = tf.one_hot(index, args.vocab_size, dtype = tf.float32)
                         
-                        # Use Only Logit Sampled.
-                        one_hot = tf.one_hot(batch_indices, args.vocab_size, dtype = tf.float32)
                         logit_sequence.append(one_hot)
                         outputs_gen.append(output_gen)
 
@@ -120,68 +113,60 @@ class GAN(object):
                     self.initial_state_dis, cell_dis, loop_function=None)
 
                 # Predictions.
-                probs_dis, logits_dis = [], []
+                predictions, logits_dis = [], []
                 for output_dis in outputs_dis:
                     logit_dis = tf.nn.xw_plus_b(output_dis, softmax_w_dis, softmax_b_dis)
                     prob_dis = tf.nn.softmax(logit_dis)
                     logits_dis.append(logit_dis)
-                    probs_dis.append(prob_dis)
+                    predictions.append(prob_dis)
      
-        # TODO: Use RL to train the language model.   
-        # with tf.name_scope('reinforce'):
-        #     reward = pred[:, 1]
-            
-        #     # Exponential baseline.
-        #     ema = tf.train.ExponentialMovingAverage(decay = decay)
-        #     reduced_reward = tf.reduce_mean(reward)
-        #     maintain_avg_op = ema.apply([reduced_reward])
-        #     baseline = ema.average(reduced_reward)
-            
-        #     # Advantage.
-        #     advantage = reduced_reward - baseline
-            
-        #     # Optimizer 
-        #     optimizer = tf.train.AdamOptimizer(lr)
-        #     min_op = optimizer.minimize(-log_prob * tf.stop_gradient(advantage), var_list = [W_gen])
-        #     train_op = tf.group(min_op, maintain_avg_op)
-
         with tf.name_scope('train'):
-            loss = seq2seq.sequence_loss_by_example(logits_dis, 
-                tf.unpack(tf.transpose(self.targets)), 
-                tf.unpack(tf.transpose(tf.ones_like(self.targets, dtype=tf.float32))))
-            self.cost = tf.reduce_sum(loss) / args.batch_size
-            tf.scalar_summary('gen training loss', self.cost)
             tvars = tf.trainable_variables()
 
             if train_method == 'train_gen':         
-                self.lr_gen = tf.Variable(0.0, trainable = False)
-                self.gen_vars = [v for v in tvars if v.name.startswith("gan/generator")]
-                self.gen_grads            = tf.gradients(self.cost, self.gen_vars)
-                gen_grads_clipped, _ = tf.clip_by_global_norm(self.gen_grads, args.grad_clip)
-                gen_optimizer        = tf.train.AdamOptimizer(self.lr_gen)
-                self.gen_train_op = gen_optimizer.apply_gradients(zip(gen_grads_clipped, self.gen_vars), 
-                                            global_step = global_step_tensor)
+                rewards = []
+                for pred in predictions:
+                    rewards.append(pred[:, 1])
+                
+                # Exponential baseline.
+                ema = tf.train.ExponentialMovingAverage(decay = args.baseline_decay)
+                rewards_tf = tf.pack(rewards)
+                reduced_reward = tf.reduce_mean(rewards_tf)
+                maintain_avg_op = ema.apply([reduced_reward])
+                baseline = ema.average(reduced_reward)
+                
+                # Advantage.
+                loss = []
+                for reward in rewards:
+                    advantage = reward - baseline
+                    loss.append(-advantage)
 
-                with tf.name_scope('summary'):
-                    with tf.name_scope('weight_summary'):
-                        for v in tvars:
-                            variable_summaries(v, v.op.name)
-                    with tf.name_scope('grad_summary'):
-                        all_grads = tf.gradients(self.cost, tvars)
-                        for var, grad in zip(tvars, all_grads):
-                            variable_summaries(grad, 'grad/' + var.op.name)
-      
+                # Optimizer 
+                self.lr_gen = tf.Variable(0.0, trainable = False)
+                gen_optimizer = tf.train.AdamOptimizer(self.lr_gen)
+                final_loss = tf.contrib.bayesflow.stochastic_graph.surrogate_loss(loss)
+                self.gen_vars = [v for v in tvars if v.op.name.startswith('gan/generator')]
+                min_op = gen_optimizer.minimize(final_loss, var_list = self.gen_vars)
+                
+                # Group operations.
+                self.gen_train_op = tf.group(min_op, maintain_avg_op)
+                self.gen_cost = final_loss
+
             elif train_method == 'train_dis':
+                loss = seq2seq.sequence_loss_by_example(logits_dis, 
+                tf.unpack(tf.transpose(self.targets)), 
+                tf.unpack(tf.transpose(tf.ones_like(self.targets, dtype=tf.float32))))
+                self.cost = tf.reduce_sum(loss) / args.batch_size
+                tf.scalar_summary('gen training loss', self.cost)
+                
                 self.lr_dis = tf.Variable(0.0, trainable = False)
                 self.dis_vars = [v for v in tvars if v.name.startswith("gan/discriminator")]
                 self.dis_grads       = tf.gradients(self.cost, self.dis_vars)
                 dis_grads_clipped, _ = tf.clip_by_global_norm(self.dis_grads, args.grad_clip)
                 dis_optimizer        = tf.train.AdamOptimizer(self.lr_dis)
                 self.dis_train_op = dis_optimizer.apply_gradients(zip(dis_grads_clipped, self.dis_vars))
-                # self.dis_train_op = dis_optimizer.apply_gradients(zip(dis_grads_clipped, self.dis_vars), 
-                #                             global_step = global_step_tensor)
+                
         
-            
             else:
                 raise Exception('train method not supported: {}'.format(train_method))
 

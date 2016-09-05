@@ -43,7 +43,7 @@ def parse_args():
 		help='number of epochs to train generator')
 	parser.add_argument('--num_epochs_dis', type=int, default=1,
 		help='number of epochs to train discriminator')
-	parser.add_argument('--num_batches_gen', type=int, default=25,
+	parser.add_argument('--num_batches_gen', type=int, default=10,
 		help='number of batches to train generator for each epoch')
 	parser.add_argument('--num_batches_dis', type=int, default=10,
 		help='number of batches to train discriminator for each epoch')
@@ -63,6 +63,8 @@ def parse_args():
 		help='keep probability for dropout')
 	parser.add_argument('--vocab_size', type=float, default=5,
 		help='size of the vocabulary (characters)')
+	parser.add_argument('--baseline_decay', type=float, default=0.9,
+		help='REINFORCE baseline decay factor')
 	return parser.parse_args()
 
 
@@ -78,19 +80,25 @@ def train_generator(sess, gan, args, train_writer, global_step_tensor):
 		for batch in xrange(args.num_batches_gen):
 			steps = tf.train.global_step(sess, global_step_tensor)
 			start = time.time()
-			gen_train_loss, gen_summary, state_gen, _ = sess.run([
-				gan.cost, 
-				gan.merged,
+			# gen_train_loss, gen_summary, state_gen, _ = sess.run([
+			# 	gan.cost, 
+			# 	gan.merged,
+			# 	gan.final_state_gen,
+			# 	gan.gen_train_op])
+
+			# train_writer.add_summary(gen_summary, steps)
+
+			gen_train_loss, state_gen, _ = sess.run([
+				gan.gen_cost, 
 				gan.final_state_gen,
 				gan.gen_train_op])
-
-			train_writer.add_summary(gen_summary, steps)
+			
 			end   = time.time()
 
 			print '{}/{} (epoch {}), gen_train_loss = {:.3f}, time/batch = {:.3f}' \
 				.format(epoch * args.num_batches_gen + batch,
 					args.num_epochs_gen * args.num_batches_gen,
-					epoch, gen_train_loss, end - start)
+					epoch, gen_train_loss[0], end - start)
 			
 			
 def train_discriminator(sess, gan, args):
