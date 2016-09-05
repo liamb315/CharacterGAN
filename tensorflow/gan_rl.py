@@ -126,23 +126,24 @@ class GAN(object):
                     prob_dis = tf.nn.softmax(logit_dis)
                     logits_dis.append(logit_dis)
                     probs_dis.append(prob_dis)
-        
-        with tf.name_scope('reinforce'):
-            reward = pred[:, 1]
+     
+        # TODO: Use RL to train the language model.   
+        # with tf.name_scope('reinforce'):
+        #     reward = pred[:, 1]
             
-            # Exponential baseline.
-            ema = tf.train.ExponentialMovingAverage(decay = decay)
-            reduced_reward = tf.reduce_mean(reward)
-            maintain_avg_op = ema.apply([reduced_reward])
-            baseline = ema.average(reduced_reward)
+        #     # Exponential baseline.
+        #     ema = tf.train.ExponentialMovingAverage(decay = decay)
+        #     reduced_reward = tf.reduce_mean(reward)
+        #     maintain_avg_op = ema.apply([reduced_reward])
+        #     baseline = ema.average(reduced_reward)
             
-            # Advantage.
-            advantage = reduced_reward - baseline
+        #     # Advantage.
+        #     advantage = reduced_reward - baseline
             
-            # Optimizer 
-            optimizer = tf.train.AdamOptimizer(lr)
-            min_op = optimizer.minimize(-log_prob * tf.stop_gradient(advantage), var_list = [W_gen])
-            train_op = tf.group(min_op, maintain_avg_op)
+        #     # Optimizer 
+        #     optimizer = tf.train.AdamOptimizer(lr)
+        #     min_op = optimizer.minimize(-log_prob * tf.stop_gradient(advantage), var_list = [W_gen])
+        #     train_op = tf.group(min_op, maintain_avg_op)
 
         with tf.name_scope('train'):
             loss = seq2seq.sequence_loss_by_example(logits_dis, 
