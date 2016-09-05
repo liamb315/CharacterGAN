@@ -4,7 +4,7 @@ import logging
 from tensorflow.models.rnn import *
 from argparse import ArgumentParser
 from batcher_gan import DiscriminatorBatcher, GANBatcher
-from gan import GAN
+from gan_rl import GAN
 import time
 import os
 import cPickle
