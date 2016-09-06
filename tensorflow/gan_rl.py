@@ -23,7 +23,6 @@ def variable_summaries(var, name):
 
 class GAN(object):
     def __init__(self, args, global_step_tensor, train_method):
-
         if args.model == 'rnn':
             cell_gen = rnn_cell.BasicRNNCell(args.rnn_size)
             cell_dis = rnn_cell.BasicRNNCell(args.rnn_size)
@@ -79,7 +78,7 @@ class GAN(object):
         elif train_method == 'train_dis':
             self.input_data = tf.placeholder(tf.int32, [args.batch_size, args.seq_length])
             self.targets = tf.placeholder(tf.int32, [args.batch_size, args.seq_length]) # Target replication
-
+      
         else:
             raise Exception('train method not supported: {}'.format(train_method))
 
@@ -102,7 +101,9 @@ class GAN(object):
 
                 elif train_method == 'train_dis':
                     # Input sequence to Discriminator.
-                    inputs = tf.split(1, args.seq_length, tf.nn.embedding_lookup(embedding_dis, self.input_data))
+                    inputs = tf.split(1, 
+                        args.seq_length, 
+                        tf.nn.embedding_lookup(embedding_dis, self.input_data))
                     inputs_dis = [tf.squeeze(i, [1]) for i in inputs]
 
                 else:
@@ -143,22 +144,25 @@ class GAN(object):
 
                 # Optimizer 
                 self.lr_gen = tf.Variable(0.0, trainable = False)
-                gen_optimizer = tf.train.AdamOptimizer(self.lr_gen)
                 final_loss = tf.contrib.bayesflow.stochastic_graph.surrogate_loss(loss)
-                self.gen_vars = [v for v in tvars if v.op.name.startswith('gan/generator')]
+                self.gen_vars = [v for v in tvars if v.name.startswith('gan/generator')]
+                gen_optimizer = tf.train.AdamOptimizer(self.lr_gen)
                 min_op = gen_optimizer.minimize(final_loss, var_list = self.gen_vars)
                 
                 # Group operations.
                 self.gen_train_op = tf.group(min_op, maintain_avg_op)
+                self.baseline = baseline
+                self.advantage = advantage
                 self.gen_cost = final_loss
 
             elif train_method == 'train_dis':
                 loss = seq2seq.sequence_loss_by_example(logits_dis, 
-                tf.unpack(tf.transpose(self.targets)), 
-                tf.unpack(tf.transpose(tf.ones_like(self.targets, dtype=tf.float32))))
+                    tf.unpack(tf.transpose(self.targets)), 
+                    tf.unpack(tf.transpose(tf.ones_like(self.targets, dtype = tf.float32))))
                 self.cost = tf.reduce_sum(loss) / args.batch_size
                 tf.scalar_summary('gen training loss', self.cost)
                 
+                # Optimizer
                 self.lr_dis = tf.Variable(0.0, trainable = False)
                 self.dis_vars = [v for v in tvars if v.name.startswith("gan/discriminator")]
                 self.dis_grads       = tf.gradients(self.cost, self.dis_vars)
@@ -172,22 +176,3 @@ class GAN(object):
 
         self.merged = tf.merge_all_summaries()            
               
-
-                # gen_summaries = []
-                # gen_summaries.append(tf.scalar_summary('gen training loss', self.cost))
-
-                # with tf.name_scope('weight_summary'):
-                #     for v in tvars:
-                #         variable_summaries(v, v.op.name)
-                # with tf.name_scope('grad_summary'):
-                #     for var, grad in zip(self.gen_vars, self.gen_grads):
-                #         variable_summaries(grad, 'grad/' + var.op.name)
-            #     for var, grad in zip(self.dis_vars, self.dis_grads):
-            #         variable_summaries(grad, 'grad/' + var.op.name)
-                # self.gen_merge    d = tf.merge_summary(gen_summaries)
-            # elif train_method == 'train_dis':
-                # dis_summaries = []
-                # dis_summaries.append(tf.scalar_summary('dis training loss', self.cost))
-                # self.dis_merged = tf.merge_summary(dis_summaries)
-
-

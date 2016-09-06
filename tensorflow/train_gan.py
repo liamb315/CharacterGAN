@@ -27,7 +27,7 @@ def parse_args():
 		help='data directory containing reviews')
 	parser.add_argument('--save_dir_GAN', type=str, default='models_GAN',
 		help='directory to store checkpointed GAN models')
-	parser.add_argument('--rnn_size', type=int, default=256,
+	parser.add_argument('--rnn_size', type=int, default=512,
 		help='size of RNN hidden state')
 	parser.add_argument('--num_layers', type=int, default=1,
 		help='number of layers in the RNN')
@@ -35,7 +35,7 @@ def parse_args():
 		help='rnn, gru, or lstm')
 	parser.add_argument('--batch_size', type=int, default=10,
 		help='minibatch size')
-	parser.add_argument('--seq_length', type=int, default=10,
+	parser.add_argument('--seq_length', type=int, default=50,
 		help='RNN sequence length')
 	parser.add_argument('--num_epochs_GAN', type=int, default=100,
 		help='number of epochs of GAN')
@@ -43,9 +43,9 @@ def parse_args():
 		help='number of epochs to train generator')
 	parser.add_argument('--num_epochs_dis', type=int, default=1,
 		help='number of epochs to train discriminator')
-	parser.add_argument('--num_batches_gen', type=int, default=10,
+	parser.add_argument('--num_batches_gen', type=int, default=100,
 		help='number of batches to train generator for each epoch')
-	parser.add_argument('--num_batches_dis', type=int, default=10,
+	parser.add_argument('--num_batches_dis', type=int, default=100,
 		help='number of batches to train discriminator for each epoch')
 	parser.add_argument('--num_example_batches', type=int, default=100,
 		help='number of batches to generate')
@@ -88,11 +88,15 @@ def train_generator(sess, gan, args, train_writer, global_step_tensor):
 
 			# train_writer.add_summary(gen_summary, steps)
 
-			gen_train_loss, state_gen, _ = sess.run([
+			gen_train_loss, state_gen, _, b, a = sess.run([
 				gan.gen_cost, 
 				gan.final_state_gen,
-				gan.gen_train_op])
+				gan.gen_train_op, 
+				gan.baseline,
+				gan.advantage])
 			
+			print 'advantage', a
+			print 'baseline', b 
 			end   = time.time()
 
 			print '{}/{} (epoch {}), gen_train_loss = {:.3f}, time/batch = {:.3f}' \
@@ -216,7 +220,7 @@ if __name__=='__main__':
 	tvars = tf.all_variables()
 	saver = tf.train.Saver(tvars)
 	
-	gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.20)
+	gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.25)
 	with tf.Session(config = tf.ConfigProto(allow_soft_placement=True, log_device_placement=True, gpu_options=gpu_options)) as sess:
 		tf.set_random_seed(1)
 		writer = tf.train.SummaryWriter(args.log_dir, sess.graph)
